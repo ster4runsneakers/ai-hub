@@ -1,0 +1,28 @@
+{
+  "apps": [
+    {
+      "name": "Ai Studio",
+      "desc": "Captions, Image Gen, CSE, Uploads",
+      "url": "https://ai-studio-2awc.onrender.com",
+      "repo": "https://github.com/ster4runsneakers/stable-minimal",
+      "icon": "static/icons/icon-192.png",
+      "tags": ["content", "imggen", "captions"]
+    },
+    {
+      "name": "Sneakers Tools",
+      "desc": "Demo utilities for shop ops.",
+      "url": "https://example-onrender.com",
+      "repo": "https://github.com/ster4runsneakers/sneakers-tools",
+      "icon": "static/icons/icon-192.png",
+      "tags": ["ecommerce","utils"]
+    },
+    {
+      "name": "Creator Packs",
+      "desc": "Templates & assets.",
+      "url": "https://example2-onrender.com",
+      "repo": "https://github.com/ster4runsneakers/creator-packs",
+      "icon": "static/icons/icon-192.png",
+      "tags": ["assets","templates"]
+    }
+  ]
+}

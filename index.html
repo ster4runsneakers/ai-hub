@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="el" data-theme="auto">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ai Hub</title>
+  <meta name="theme-color" content="#7b5cff">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="static/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="static/icons/icon-512.png">
+  <style>
+    :root{ --bg:#0b0b10; --card:#16161f; --text:#e8e8ff; --muted:#9aa0b4; --brand:#7b5cff; --ring:#2a2a38; }
+    [data-theme="light"]{ --bg:#fbfbfe; --card:#ffffff; --text:#11131a; --muted:#556070; --ring:#e8e8f3; }
+    *{box-sizing:border-box}
+    body{margin:0;font:16px/1.5 system-ui,Segoe UI,Roboto;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1100px;margin:0 auto;padding:20px}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text)}
+    .logo{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7b5cff,#ff6fb1);color:#fff;font-weight:800}
+    .tools{display:flex;gap:8px}
+    .btn{border:1px solid var(--ring);background:transparent;color:var(--text);padding:6px 10px;border-radius:999px;cursor:pointer}
+    .btn[aria-pressed="true"]{border-color:var(--brand)}
+    .search{display:flex;gap:8px;margin:10px 0}
+    .search input,.search select{flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--ring);background:var(--card);color:var(--text)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+    .card{background:var(--card);border:1px solid var(--ring);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:180px}
+    .title{font-weight:700}
+    .desc{color:var(--muted);font-size:14px}
+    .badges{display:flex;flex-wrap:wrap;gap:6px}
+    .badge{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--ring);color:var(--muted)}
+    .actions{display:flex;gap:8px;margin-top:auto}
+    .primary{background:var(--brand);color:#fff;border:0}
+    footer{margin-top:20px;color:var(--muted);font-size:14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    @media (max-width:540px){ header{flex-wrap:wrap} .tools{width:100%} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="brand" href="#">
+        <span class="logo">AI</span>
+        <span><strong>Ai Hub</strong> • Projects</span>
+      </a>
+      <div class="tools" role="group" aria-label="Theme">
+        <button class="btn" data-theme="light">Light</button>
+        <button class="btn" data-theme="dark">Dark</button>
+        <button class="btn" data-theme="auto">Auto</button>
+      </div>
+    </header>
+
+    <div class="search">
+      <input id="q" placeholder="🔎 Αναζήτηση (π.χ. ai studio, captions, sneakers)">
+      <select id="tag">
+        <option value="">Όλα τα tags</option>
+      </select>
+    </div>
+
+    <section id="grid" class="grid" aria-live="polite"></section>
+
+    <footer>
+      <div>© 2025 Ai Hub</div>
+      <div>Installable PWA • Mobile friendly</div>
+    </footer>
+  </div>
+
+  <script>
+    // Theme
+    const root=document.documentElement;
+    function computeAuto(){ return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }
+    function applyTheme(mode){
+      const final = (mode==='auto') ? computeAuto() : mode;
+      root.setAttribute('data-theme', final);
+      document.querySelectorAll('.tools .btn').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.theme===mode)));
+    }
+    const saved=localStorage.getItem('theme')||'auto'; applyTheme(saved);
+    document.querySelectorAll('.tools .btn').forEach(b=> b.onclick=()=>{ localStorage.setItem('theme', b.dataset.theme); applyTheme(b.dataset.theme); });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', ()=>{ if((localStorage.getItem('theme')||'auto')==='auto') applyTheme('auto'); });
+
+    // Data
+    const state={apps:[], q:'', tag:''};
+    const grid=document.getElementById('grid');
+    const selTag=document.getElementById('tag');
+    const inputQ=document.getElementById('q');
+
+    fetch('apps.json?_='+Date.now()).then(r=>r.json()).then(d=>{
+      state.apps=d.apps||[];
+      const tags=new Set(); state.apps.forEach(a=> (a.tags||[]).forEach(t=> tags.add(t)));
+      [...tags].sort().forEach(t=>{ const opt=document.createElement('option'); opt.value=t; opt.textContent=t; selTag.appendChild(opt); });
+      render();
+    });
+
+    function esc(s){return (s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));}
+    function card(a){
+      const icon = a.icon ? `<img src="${esc(a.icon)}" alt="" width="24" height="24" style="border-radius:6px;border:1px solid var(--ring)">` : '🚀';
+      const tags = (a.tags||[]).map(t=>`<span class="badge">${esc(t)}</span>`).join('');
+      const open = a.url ? `<a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open App</a>` : '';
+      const repo = a.repo? `<a class="btn" href="${esc(a.repo)}" target="_blank" rel="noopener">Repo</a>` : '';
+      return `
+        <article class="card">
+          <div style="display:flex;gap:10px;align-items:center">
+            <div>${icon}</div><div class="title">${esc(a.name)}</div>
+          </div>
+          <div class="desc">${esc(a.desc||'')}</div>
+          <div class="badges">${tags}</div>
+          <div class="actions">${open}${repo}</div>
+        </article>`;
+    }
+    function render(){
+      const q=(state.q||'').toLowerCase(), tag=state.tag||'';
+      const list=state.apps.filter(a=>{
+        const matchesQ = !q || [a.name,a.desc,(a.repo||''),(a.url||''),(a.tags||[]).join(' ')].join(' ').toLowerCase().includes(q);
+        const matchesTag=!tag || (a.tags||[]).includes(tag);
+        return matchesQ && matchesTag;
+      });
+      grid.innerHTML = list.map(a=>card(a)).join('') || '<div class="desc">Δεν βρέθηκαν apps.</div>';
+    }
+    inputQ.addEventListener('input',e=>{ state.q=e.target.value; render(); });
+    selTag.addEventListener('change',e=>{ state.tag=e.target.value; render(); });
+
+    // PWA
+    if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js').catch(console.warn); }
+  </script>
+</body>
+</html>
