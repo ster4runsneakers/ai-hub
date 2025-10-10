@@ -18,7 +18,6 @@
   ],
   "categories": ["productivity", "utilities"],
   "shortcuts": [
-    { "name": "Open Ai Studio", "url": "/ai-hub/?q=studio" },
-    { "name": "Sneakers Tools", "url": "/ai-hub/?q=sneakers" }
+    { "name": "Sneakers Tools", "url": "/ai-hub/sneakers.html" }
   ]
 }
