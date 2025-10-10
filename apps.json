@@ -21,8 +21,8 @@
       "desc": "Templates & assets.",
       "tags": ["assets", "templates"],
       "icon": "static/icons/icon-192.png",
-      "url": "https://github.com/you/creator-packs-demo",
-      "repo": "https://github.com/you/creator-packs-demo"
+      "url": "https://example.com/creator-packs",
+      "repo": "https://github.com/you/creator-packs"
     }
   ]
 }
