@@ -55,9 +55,12 @@
     </div>
 
     <div class="toolbar">
-      <div style="display:flex; gap:8px">
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
         <button id="btn-add" class="btn">+ Add App</button>
         <button id="btn-manage" class="btn">Manage Apps</button>
+        <button id="btn-export" class="btn">Export</button>
+        <button id="btn-import" class="btn">Import</button>
+        <input id="file-import" type="file" accept="application/json" hidden>
       </div>
     </div>
 
@@ -74,11 +77,11 @@
   <div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
     <div class="modal-card">
       <button type="button" class="btn modal-close" aria-label="Close" style="float:right">×</button>
-      <h2 id="modal-title" class="modal-title">Add App</h2>
+      <h2 id="modal-title" class="modal-title">Add / Edit App</h2>
       <form id="form-add-app" class="modal-form">
         <label><span>Όνομα *</span><input name="name" required placeholder="Ai Studio"></label>
         <label><span>Περιγραφή</span><input name="desc" placeholder="Short description"></label>
-        <label><span>URL (Open App)</span><input name="url" placeholder="https://..."></label>
+        <label><span>URL (Open App)</span><input name="url" placeholder="https://... ή sneakers.html"></label>
         <label><span>Repo</span><input name="repo" placeholder="https://github.com/..."></label>
         <label><span>Icon</span><input name="icon" placeholder="static/icons/icon-192.png"></label>
         <label><span>Tags (comma-separated)</span><input name="tags" placeholder="content, utils"></label>
@@ -116,38 +119,21 @@
       var metaTheme=document.getElementById('theme-color');
       var hintEl=document.getElementById('theme-hint');
       var mqDark = window.matchMedia('(prefers-color-scheme: dark)');
-
       function systemPref(){ return mqDark.matches ? 'dark' : 'light'; }
       function effectiveTheme(mode){ return mode==='auto' ? systemPref() : mode; }
-      function updateMetaTheme(mode){
-        var eff = effectiveTheme(mode);
-        metaTheme.setAttribute('content', eff==='dark' ? '#0b0b10' : '#fbfbfe');
-      }
+      function updateMetaTheme(mode){ var eff = effectiveTheme(mode); metaTheme.setAttribute('content', eff==='dark' ? '#0b0b10' : '#fbfbfe'); }
       function applyTheme(mode){
-        root.setAttribute('data-theme', mode);
-        updateMetaTheme(mode);
-        var eff = effectiveTheme(mode);
-        hintEl.textContent = mode==='auto' ? ('Auto • system: ' + eff) : ('Theme: ' + mode);
+        root.setAttribute('data-theme', mode); updateMetaTheme(mode);
+        var eff = effectiveTheme(mode); hintEl.textContent = mode==='auto' ? ('Auto • system: ' + eff) : ('Theme: ' + mode);
         var btns = document.querySelectorAll('.tools .btn[data-theme-btn]');
-        for (var i=0;i<btns.length;i++){
-          btns[i].setAttribute('aria-pressed', String(btns[i].getAttribute('data-theme-btn')===mode));
-        }
+        for (var i=0;i<btns.length;i++){ btns[i].setAttribute('aria-pressed', String(btns[i].getAttribute('data-theme-btn')===mode)); }
       }
       function setTheme(mode){ localStorage.setItem('hub_theme',mode); applyTheme(mode); }
-
-      var saved = localStorage.getItem('hub_theme') || 'auto';
-      applyTheme(saved);
+      var saved = localStorage.getItem('hub_theme') || 'auto'; applyTheme(saved);
       var themeBtns = document.querySelectorAll('.tools .btn[data-theme-btn]');
-      for (var j=0;j<themeBtns.length;j++){
-        themeBtns[j].addEventListener('click', (function(btn){
-          return function(){ setTheme(btn.getAttribute('data-theme-btn')); };
-        })(themeBtns[j]));
-      }
-      function onSystemChange(){
-        if ((localStorage.getItem('hub_theme')||'auto')==='auto') applyTheme('auto');
-      }
-      if (mqDark.addEventListener) mqDark.addEventListener('change', onSystemChange);
-      else if (mqDark.addListener) mqDark.addListener(onSystemChange);
+      for (var j=0;j<themeBtns.length;j++){ themeBtns[j].addEventListener('click', (function(btn){ return function(){ setTheme(btn.getAttribute('data-theme-btn')); }; })(themeBtns[j])); }
+      function onSystemChange(){ if ((localStorage.getItem('hub_theme')||'auto')==='auto') applyTheme('auto'); }
+      if (mqDark.addEventListener) mqDark.addEventListener('change', onSystemChange); else if (mqDark.addListener) mqDark.addListener(onSystemChange);
 
       // ===== APPS =====
       var state={apps:[], q:'', tag:''};
@@ -156,21 +142,9 @@
       var inputQ=document.getElementById('q');
       var LS_KEY = 'hub_user_apps_v1';
 
-      function loadLocalApps(){
-        try{
-          var raw = localStorage.getItem(LS_KEY);
-          if(!raw) return [];
-          var arr = JSON.parse(raw);
-          return Array.isArray(arr) ? arr : [];
-        }catch(e){ return []; }
-      }
+      function loadLocalApps(){ try{ var raw=localStorage.getItem(LS_KEY); if(!raw) return []; var arr=JSON.parse(raw); return Array.isArray(arr)?arr:[]; }catch(e){ return []; } }
       function saveLocalApps(arr){ localStorage.setItem(LS_KEY, JSON.stringify(arr||[])); }
-      function mergeApps(base, extra){
-        var map = {};
-        base.forEach(function(a){ map[(a.name||'').toLowerCase()] = a; });
-        extra.forEach(function(a){ map[(a.name||'').toLowerCase()] = a; });
-        return Object.keys(map).map(function(k){ return map[k]; });
-      }
+      function mergeApps(base, extra){ var map={}; base.forEach(function(a){ map[(a.name||'').toLowerCase()]=a; }); extra.forEach(function(a){ map[(a.name||'').toLowerCase()]=a; }); return Object.keys(map).map(function(k){return map[k];}); }
 
       fetch('apps.json?_=' + Date.now())
         .then(function(r){ return r.json(); })
@@ -178,28 +152,20 @@
           var base = (d && Array.isArray(d.apps)) ? d.apps : [];
           var extra = loadLocalApps();
           state.apps = mergeApps(base, extra);
-
-          var tags={}; 
-          state.apps.forEach(function(a){ (a.tags||[]).forEach(function(t){ tags[t]=1; }); });
-          Object.keys(tags).sort().forEach(function(t){
-            var opt=document.createElement('option'); opt.value=t; opt.textContent=t; selTag.appendChild(opt);
-          });
+          var tags={}; state.apps.forEach(function(a){ (a.tags||[]).forEach(function(t){ tags[t]=1; }); });
+          Object.keys(tags).sort().forEach(function(t){ var opt=document.createElement('option'); opt.value=t; opt.textContent=t; selTag.appendChild(opt); });
           render();
         })
-        .catch(function(){
-          state.apps = mergeApps([], loadLocalApps());
-          render();
-        });
+        .catch(function(){ state.apps = mergeApps([], loadLocalApps()); render(); });
 
-      function esc(s){
-        return (s||'').replace(/[&<>"]/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); });
-      }
+      function esc(s){ return (s||'').replace(/[&<>"]/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); }); }
       function card(a){
         var icon = a.icon ? '<img src="'+esc(a.icon)+'" alt="" width="24" height="24" style="border-radius:6px;border:1px solid var(--ring)">' : '🚀';
         var tags = (a.tags||[]).map(function(t){ return '<span class="badge">'+esc(t)+'</span>'; }).join('');
         var openBtn = a.url  ? '<a class="btn primary" href="'+esc(a.url)+'" target="_blank" rel="noopener">Open App</a>' : '';
         var repoBtn = a.repo ? '<a class="btn" href="'+esc(a.repo)+'" target="_blank" rel="noopener">Repo</a>' : '';
-        var actions = (openBtn || repoBtn) ? '<div class="actions">'+openBtn+repoBtn+'</div>' : '<div class="actions"><span class="hint">🚧 Coming soon</span></div>';
+        var editBtn = '<button class="btn" data-edit="'+esc(a.name)+'">Edit</button>';
+        var actions = '<div class="actions">'+openBtn+repoBtn+editBtn+'</div>';
         return '<article class="card"><div style="display:flex;gap:10px;align-items:center"><div>'+icon+'</div><div class="title">'+esc(a.name)+'</div></div><div class="desc">'+esc(a.desc||'')+'</div><div class="badges">'+tags+'</div>'+actions+'</article>';
       }
       function render(){
@@ -233,25 +199,28 @@
       var btnCloseManage = q('#btn-close-manage');
       var btnClearAll = q('#btn-clear-all');
 
-      function closeAllModals(){
-        hide(addModal); hide(manageModal);
-        hide(addBackdrop); hide(manageBackdrop);
-        document.body.classList.remove('no-scroll');
-        if(addForm) addForm.reset();
-      }
-      function openAdd(){
-        show(addModal); show(addBackdrop);
-        document.body.classList.add('no-scroll');
+      // Export / Import
+      var btnExport = q('#btn-export');
+      var btnImport = q('#btn-import');
+      var fileImport = q('#file-import');
+
+      function closeAllModals(){ hide(addModal); hide(manageModal); hide(addBackdrop); hide(manageBackdrop); document.body.classList.remove('no-scroll'); if(addForm) addForm.reset(); }
+      function openAdd(prefill){
+        show(addModal); show(addBackdrop); document.body.classList.add('no-scroll');
+        if (prefill && addForm){
+          addForm.name.value = prefill.name || '';
+          addForm.desc.value = prefill.desc || '';
+          addForm.url.value  = prefill.url  || '';
+          addForm.repo.value = prefill.repo || '';
+          addForm.icon.value = prefill.icon || '';
+          addForm.tags.value = (prefill.tags||[]).join(', ');
+        }
         var first = addForm && addForm.querySelector('input[name="name"]');
         setTimeout(function(){ if(first) first.focus(); }, 0);
       }
-      function openManage(){
-        renderManageList();
-        show(manageModal); show(manageBackdrop);
-        document.body.classList.add('no-scroll');
-      }
+      function openManage(){ renderManageList(); show(manageModal); show(manageBackdrop); document.body.classList.add('no-scroll'); }
 
-      if (btnAdd) btnAdd.addEventListener('click', openAdd);
+      if (btnAdd) btnAdd.addEventListener('click', function(){ openAdd(null); });
       if (btnAddCancel) btnAddCancel.addEventListener('click', closeAllModals);
       if (btnManage) btnManage.addEventListener('click', openManage);
       if (btnCloseManage) btnCloseManage.addEventListener('click', closeAllModals);
@@ -259,11 +228,19 @@
       document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeAllModals(); });
       if (addBackdrop) addBackdrop.addEventListener('click', closeAllModals);
       if (manageBackdrop) manageBackdrop.addEventListener('click', closeAllModals);
-
       document.addEventListener('click', function(e){
         var closeBtn = e.target && e.target.closest ? e.target.closest('.modal-close') : null;
         if(closeBtn){ e.preventDefault(); return closeAllModals(); }
         if(e.target===addModal || e.target===manageModal){ e.preventDefault(); return closeAllModals(); }
+      });
+
+      // Inline Edit (από το grid)
+      document.addEventListener('click', function(e){
+        var ed = e.target && e.target.closest ? e.target.closest('[data-edit]') : null;
+        if(!ed) return;
+        var name = ed.getAttribute('data-edit')||'';
+        var found = state.apps.find(function(a){ return (a.name||'').toLowerCase() === name.toLowerCase(); });
+        if(found){ openAdd(found); }
       });
 
       if (addForm){
@@ -280,6 +257,7 @@
             icon: (fd.get('icon')||'').toString().trim(),
             tags: ((fd.get('tags')||'').toString().split(',').map(function(s){return s.trim();}).filter(Boolean)) || []
           };
+          // save/override locally
           var extra = loadLocalApps();
           var i=-1; for(var k=0;k<extra.length;k++){ if((extra[k].name||'').toLowerCase()===name.toLowerCase()){ i=k; break; } }
           if(i>=0) extra[i]=app; else extra.push(app);
@@ -289,18 +267,14 @@
             var exists=false; for(var z=0;z<selTag.options.length;z++){ if(selTag.options[z].value===t){ exists=true; break; } }
             if(!exists){ var o=document.createElement('option'); o.value=t; o.textContent=t; selTag.appendChild(o); }
           });
-          render();
-          closeAllModals();
+          render(); closeAllModals();
         });
       }
 
       // Manage Apps
       function renderManageList(){
         var extra = loadLocalApps();
-        if(!extra.length){
-          manageList.innerHTML = '<div class="desc">Δεν υπάρχουν τοπικά apps.</div>';
-          return;
-        }
+        if(!extra.length){ manageList.innerHTML = '<div class="desc">Δεν υπάρχουν τοπικά apps.</div>'; return; }
         manageList.innerHTML = extra.map(function(a){
           return '<div class="manage-row"><div class="manage-info"><div class="manage-name">'+esc(a.name)+'</div><div class="manage-meta">'+esc(a.desc||'')+'</div></div><div class="manage-actions"><button class="btn" data-del="'+esc(a.name)+'">Delete</button></div></div>';
         }).join('');
@@ -336,21 +310,58 @@
         });
       }
 
+      // ===== Export / Import =====
+      function download(filename, text){
+        var a=document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([text], {type:'application/json'}));
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+      }
+      if (btnExport){
+        btnExport.addEventListener('click', function(){
+          var payload = { schema: 'ai-hub-local-apps@v1', exportedAt: new Date().toISOString(), apps: loadLocalApps() };
+          download('ai-hub-apps-backup-'+ new Date().toISOString().slice(0,10) +'.json', JSON.stringify(payload,null,2));
+        });
+      }
+      if (btnImport && fileImport){
+        btnImport.addEventListener('click', function(){ fileImport.value=''; fileImport.click(); });
+        fileImport.addEventListener('change', function(){
+          var file = fileImport.files && fileImport.files[0]; if(!file) return;
+          var reader = new FileReader();
+          reader.onload = function(){
+            try{
+              var data = JSON.parse(String(reader.result||'{}'));
+              var arr = Array.isArray(data) ? data : (Array.isArray(data.apps) ? data.apps : []);
+              if(!arr.length){ alert('Δεν βρέθηκαν apps στο αρχείο.'); return; }
+              // merge by name
+              var current = loadLocalApps();
+              var map = {}; current.forEach(function(a){ map[(a.name||'').toLowerCase()]=a; });
+              arr.forEach(function(a){ map[(a.name||'').toLowerCase()] = a; });
+              var merged = Object.keys(map).map(function(k){ return map[k]; });
+              saveLocalApps(merged);
+              // refresh UI with base re-merged
+              fetch('apps.json?_=' + Date.now()).then(function(r){return r.json();}).then(function(d){
+                var base=(d && Array.isArray(d.apps))?d.apps:[];
+                state.apps = mergeApps(base, merged);
+                render(); alert('Εισήχθησαν '+ arr.length +' apps (merged).');
+              }).catch(function(){
+                state.apps = mergeApps([], merged); render(); alert('Εισήχθησαν '+ arr.length +' apps (merged).');
+              });
+            }catch(e){ alert('Μη έγκυρο JSON.'); }
+          };
+          reader.readAsText(file);
+        });
+      }
+
       // ===== PWA INSTALL =====
       var deferredPrompt=null;
       var installBtn=document.getElementById('btn-install');
-      window.addEventListener('beforeinstallprompt', function(e){
-        e.preventDefault(); deferredPrompt=e; installBtn.style.display='inline-block';
-      });
-      installBtn.addEventListener('click', function(){
-        if(!deferredPrompt) return;
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then(function(){ deferredPrompt=null; installBtn.style.display='none'; });
-      });
+      window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferredPrompt=e; installBtn.style.display='inline-block'; });
+      installBtn.addEventListener('click', function(){ if(!deferredPrompt) return; deferredPrompt.prompt(); deferredPrompt.userChoice.then(function(){ deferredPrompt=null; installBtn.style.display='none'; }); });
 
-      if('serviceWorker' in navigator){
-        navigator.serviceWorker.register('service-worker.js').catch(function(err){ console.warn(err); });
-      }
+      if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js').catch(function(err){ console.warn(err); }); }
     });
   })();
   </script>
