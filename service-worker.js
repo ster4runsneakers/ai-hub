@@ -1,15 +1,15 @@
-const CACHE = 'ai-hub-v5';
+const CACHE = 'ai-hub-v6';
 const ASSETS = [
   './',
   './index.html',
   './sneakers.html',
   './styles.css',
   './apps.json',
-  './static/icons/icon-192.png',
-  './static/icons/icon-512.png',
-  './static/screenshots/wide-1280x720.png',
-  './static/screenshots/mobile-540x720.png',
-  './manifest.webmanifest?v=5'
+  '/ai-hub/static/icons/icon-192.png',
+  '/ai-hub/static/icons/icon-512.png',
+  '/ai-hub/static/screenshots/wide-1280x720.png',
+  '/ai-hub/static/screenshots/mobile-540x720.png',
+  '/ai-hub/manifest.webmanifest?v=7'
 ];
 
 self.addEventListener('install', (e)=>{
