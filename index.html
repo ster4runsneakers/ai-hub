@@ -11,81 +11,7 @@
   <link rel="apple-touch-icon" href="static/icons/icon-512.png">
   <meta id="theme-color" name="theme-color" content="#0b0b10">
 
-  <style>
-    /* --- THEME TOKENS ---
-       Βάση = LIGHT. Υπάρχουν δύο override μπλοκ:
-       1) [data-theme="dark"]  → force dark
-       2) [data-theme="auto"]  → default light, αλλά με media query γίνεται dark.
-    */
-
-    :root{
-      /* Light defaults */
-      --bg:#fbfbfe; --card:#ffffff; --text:#11131a; --muted:#556070;
-      --ring:#e8e8f3; --brand:#5b55ff; --brand-2:#ff77aa;
-      --btn:#f4f4fb; --btn-text:#11131a;
-    }
-    [data-theme="light"]{
-      /* (ίδια με defaults – κρατάμε για σαφήνεια) */
-      --bg:#fbfbfe; --card:#ffffff; --text:#11131a; --muted:#556070;
-      --ring:#e8e8f3; --brand:#5b55ff; --brand-2:#ff77aa;
-      --btn:#f4f4fb; --btn-text:#11131a;
-    }
-    [data-theme="dark"]{
-      --bg:#0b0b10; --card:#16161f; --text:#e8e8ff; --muted:#9aa0b4;
-      --ring:#232334; --brand:#7b5cff; --brand-2:#ff6fb1;
-      --btn:#1f1f2b; --btn-text:#e8e8ff;
-    }
-    /* AUTO: light by default… */
-    [data-theme="auto"]{
-      --bg:#fbfbfe; --card:#ffffff; --text:#11131a; --muted:#556070;
-      --ring:#e8e8f3; --brand:#5b55ff; --brand-2:#ff77aa;
-      --btn:#f4f4fb; --btn-text:#11131a;
-    }
-    /* …και γίνεται dark όταν το σύστημα είναι dark */
-    @media (prefers-color-scheme: dark){
-      [data-theme="auto"]{
-        --bg:#0b0b10; --card:#16161f; --text:#e8e8ff; --muted:#9aa0b4;
-        --ring:#232334; --brand:#7b5cff; --brand-2:#ff6fb1;
-        --btn:#1f1f2b; --btn-text:#e8e8ff;
-      }
-    }
-
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui, Segoe UI, Roboto, Arial}
-    .wrap{max-width:1100px;margin:0 auto;padding:20px}
-
-    header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:18px}
-    .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text)}
-    .logo{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:10px;
-          background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;font-weight:800}
-
-    .tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .btn{border:1px solid var(--ring);background:var(--btn);color:var(--btn-text);
-         padding:8px 12px;border-radius:999px;cursor:pointer}
-    .btn[aria-pressed="true"]{outline:2px solid var(--brand); outline-offset:1px}
-    .hint{font-size:12px;color:var(--muted);margin-left:6px}
-
-    .search{display:flex;gap:8px;margin:10px 0}
-    .search input,.search select{flex:1;padding:10px 12px;border-radius:12px;border:1px solid var(--ring);
-                                 background:var(--card);color:var(--text)}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-    .card{background:var(--card);border:1px solid var(--ring);border-radius:16px;padding:16px;
-          display:flex;flex-direction:column;gap:10px;min-height:180px}
-    .title{font-weight:800}
-    .desc{color:var(--muted);font-size:14px}
-    .badges{display:flex;flex-wrap:wrap;gap:6px}
-    .badge{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--ring);color:var(--muted)}
-    .actions{display:flex;gap:8px;margin-top:auto}
-    .primary{background:var(--brand);color:#fff;border:0}
-    footer{margin-top:20px;color:var(--muted);font-size:14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-
-    @media (max-width:540px){
-      header{flex-wrap:wrap}
-      .tools{width:100%}
-      .search{flex-direction:column}
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="wrap">
@@ -125,48 +51,32 @@
     const hintEl=document.getElementById('theme-hint');
     const mqDark = window.matchMedia('(prefers-color-scheme: dark)');
 
-    function systemPref(){ return mqDark.matches ? 'dark' : 'light'; }
-
-    // Υπολογισμός "effective" (τι βλέπει ο χρήστης) με βάση τη λειτουργία
-    function effectiveTheme(mode){
-      if(mode==='auto') return systemPref();
-      return mode; // 'light' | 'dark'
-    }
-
-    function updateMetaTheme(mode){
+    const systemPref = ()=> mqDark.matches ? 'dark' : 'light';
+    const effectiveTheme = (mode)=> mode==='auto' ? systemPref() : mode;
+    const updateMetaTheme = (mode)=> {
       const eff = effectiveTheme(mode);
       metaTheme.setAttribute('content', eff==='dark' ? '#0b0b10' : '#fbfbfe');
-    }
+    };
 
     function applyTheme(mode){
-      root.setAttribute('data-theme', mode);           // κρατάμε πάνω στο <html> το mode: light|dark|auto
-      updateMetaTheme(mode);                           // ενημέρωση browser UI
+      root.setAttribute('data-theme', mode);
+      updateMetaTheme(mode);
       const eff = effectiveTheme(mode);
       hintEl.textContent = mode==='auto' ? `Auto • system: ${eff}` : `Theme: ${mode}`;
-
-      // set pressed state μόνο στα buttons (όχι στο <html>)
       document.querySelectorAll('.tools .btn[data-theme-btn]').forEach(b=>{
         b.setAttribute('aria-pressed', String(b.dataset.themeBtn===mode));
       });
     }
-    function setTheme(mode){
-      localStorage.setItem('hub_theme', mode);
-      applyTheme(mode);
-    }
+    function setTheme(mode){ localStorage.setItem('hub_theme',mode); applyTheme(mode); }
 
     const saved = localStorage.getItem('hub_theme') || 'auto';
     applyTheme(saved);
 
-    // Click handlers μόνο για τα theme buttons
     document.querySelectorAll('.tools .btn[data-theme-btn]').forEach(b=>{
       b.addEventListener('click', ()=> setTheme(b.dataset.themeBtn));
     });
-
-    // Ζωντανή αλλαγή όταν είμαστε σε AUTO και αλλάζει το system theme
     const onSystemChange = ()=> {
-      if ((localStorage.getItem('hub_theme')||'auto')==='auto'){
-        applyTheme('auto');
-      }
+      if ((localStorage.getItem('hub_theme')||'auto')==='auto') applyTheme('auto');
     };
     if (mqDark.addEventListener) mqDark.addEventListener('change', onSystemChange);
     else if (mqDark.addListener) mqDark.addListener(onSystemChange);
@@ -177,21 +87,29 @@
     const selTag=document.getElementById('tag');
     const inputQ=document.getElementById('q');
 
-    fetch('apps.json?_='+Date.now()).then(r=>r.json()).then(d=>{
-      state.apps=d.apps||[];
-      const tags=new Set(); state.apps.forEach(a=> (a.tags||[]).forEach(t=> tags.add(t)));
-      [...tags].sort().forEach(t=>{
-        const opt=document.createElement('option'); opt.value=t; opt.textContent=t; selTag.appendChild(opt);
-      });
-      render();
-    }).catch(()=>{ grid.innerHTML='<div class="desc">Δεν βρέθηκαν apps.</div>'; });
+    fetch('apps.json?_='+Date.now())
+      .then(r=>r.json())
+      .then(d=>{
+        state.apps=d.apps||[];
+        const tags=new Set(); state.apps.forEach(a=> (a.tags||[]).forEach(t=> tags.add(t)));
+        [...tags].sort().forEach(t=>{
+          const opt=document.createElement('option'); opt.value=t; opt.textContent=t; selTag.appendChild(opt);
+        });
+        render();
+      })
+      .catch(()=>{ grid.innerHTML='<div class="desc">Δεν βρέθηκαν apps.</div>'; });
 
-    function esc(s){return (s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));}
+    const esc = (s)=> (s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
     function card(a){
       const icon = a.icon ? `<img src="${esc(a.icon)}" alt="" width="24" height="24" style="border-radius:6px;border:1px solid var(--ring)">` : '🚀';
       const tags = (a.tags||[]).map(t=>`<span class="badge">${esc(t)}</span>`).join('');
-      const open = a.url ? `<a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open App</a>` : '';
-      const repo = a.repo? `<a class="btn" href="${esc(a.repo)}" target="_blank" rel="noopener">Repo</a>` : '';
+
+      const openBtn = a.url  ? `<a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open App</a>` : '';
+      const repoBtn = a.repo ? `<a class="btn" href="${esc(a.repo)}" target="_blank" rel="noopener">Repo</a>` : '';
+      const actions = (openBtn || repoBtn)
+        ? `<div class="actions">${openBtn}${repoBtn}</div>`
+        : `<div class="actions"><span class="hint">🚧 Coming soon</span></div>`;
+
       return `
         <article class="card">
           <div style="display:flex;gap:10px;align-items:center">
@@ -199,7 +117,7 @@
           </div>
           <div class="desc">${esc(a.desc||'')}</div>
           <div class="badges">${tags}</div>
-          <div class="actions">${open}${repo}</div>
+          ${actions}
         </article>`;
     }
     function render(){
