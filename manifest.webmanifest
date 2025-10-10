@@ -1,12 +1,24 @@
 {
+  "id": "/ai-hub/",
   "name": "Ai Hub",
   "short_name": "Ai Hub",
-  "start_url": ".",
+  "description": "Ai Hub • Projects — μικρό hub με εργαλεία.",
+  "start_url": "/ai-hub/",
+  "scope": "/ai-hub/",
   "display": "standalone",
   "background_color": "#0b0b10",
   "theme_color": "#0b0b10",
   "icons": [
-    { "src": "static/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "static/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "screenshots": [
+    { "src": "static/screenshots/wide-1280x720.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide" },
+    { "src": "static/screenshots/mobile-540x720.png", "sizes": "540x720", "type": "image/png" }
+  ],
+  "categories": ["productivity", "utilities"],
+  "shortcuts": [
+    { "name": "Open Ai Studio", "url": "/ai-hub/?q=studio" },
+    { "name": "Sneakers Tools", "url": "/ai-hub/?q=sneakers" }
   ]
 }
