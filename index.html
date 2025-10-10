@@ -61,7 +61,10 @@
 
     <!-- Toolbar κάτω από το search -->
     <div class="toolbar">
-      <button id="btn-add" class="btn">+ Add App</button>
+      <div style="display:flex; gap:8px">
+        <button id="btn-add" class="btn">+ Add App</button>
+        <button id="btn-manage" class="btn">Manage Apps</button>
+      </div>
     </div>
 
     <section id="grid" class="grid" aria-live="polite"></section>
@@ -76,6 +79,7 @@
   <div id="modal-backdrop" class="modal-backdrop" hidden></div>
   <div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
     <div class="modal-card">
+      <button type="button" class="btn modal-close" aria-label="Close" style="float:right">×</button>
       <h2 id="modal-title" class="modal-title">Add App</h2>
       <form id="form-add-app" class="modal-form">
         <label>
@@ -109,6 +113,21 @@
         </div>
         <p class="hint">Αποθηκεύεται μόνο τοπικά (localStorage). Δεν κάνει commit στο GitHub.</p>
       </form>
+    </div>
+  </div>
+
+  <!-- Manage Apps Modal -->
+  <div id="manage-backdrop" class="modal-backdrop" hidden></div>
+  <div id="manage-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="manage-title" hidden>
+    <div class="modal-card">
+      <button type="button" class="btn modal-close" aria-label="Close" style="float:right">×</button>
+      <h2 id="manage-title" class="modal-title">Manage Apps (Local)</h2>
+      <div id="manage-list" class="manage-list"></div>
+      <div class="modal-actions">
+        <button type="button" id="btn-clear-all" class="btn">Clear All</button>
+        <button type="button" id="btn-close-manage" class="btn primary">Close</button>
+      </div>
+      <p class="hint">Εδώ φαίνονται μόνο όσα έχεις προσθέσει/αλλάξει τοπικά (localStorage).</p>
     </div>
   </div>
 
@@ -149,7 +168,7 @@
     if (mqDark.addEventListener) mqDark.addEventListener('change', onSystemChange);
     else if (mqDark.addListener) mqDark.addListener(onSystemChange);
 
-    // ===== APPS (με Add App & localStorage) =====
+    // ===== APPS (με Add App, Manage Apps & localStorage) =====
     const state={apps:[], q:'', tag:''};
     const grid=document.getElementById('grid');
     const selTag=document.getElementById('tag');
@@ -228,30 +247,45 @@
     inputQ.addEventListener('input',e=>{ state.q=e.target.value; render(); });
     selTag.addEventListener('change',e=>{ state.tag=e.target.value; render(); });
 
-    // ===== Add App modal logic =====
+    // ===== Add App modal logic (robust) =====
     const btnAdd = document.getElementById('btn-add');
     const modal = document.getElementById('modal');
     const backdrop = document.getElementById('modal-backdrop');
     const form = document.getElementById('form-add-app');
     const btnCancel = document.getElementById('btn-cancel');
 
+    function closeModal(){
+      if(!modal) return;
+      modal.hidden = true;
+      if(backdrop) backdrop.hidden = true;
+      if(form) form.reset();
+    }
     function openModal(){
+      if(!modal) return;
       modal.hidden = false;
-      backdrop.hidden = false;
-      const first = form.querySelector('input[name="name"]');
+      if(backdrop) backdrop.hidden = false;
+      const first = form && form.querySelector('input[name="name"]');
       setTimeout(()=> first && first.focus(), 0);
     }
-    function closeModal(){
-      modal.hidden = true;
-      backdrop.hidden = true;
-      form.reset();
-    }
 
-    btnAdd.addEventListener('click', openModal);
-    btnCancel.addEventListener('click', closeModal);
-    backdrop.addEventListener('click', closeModal);
+    if (btnAdd) btnAdd.addEventListener('click', openModal);
+    if (btnCancel) btnCancel.addEventListener('click', closeModal);
+    if (backdrop) backdrop.addEventListener('click', closeModal);
+
     document.addEventListener('keydown', (e)=> {
-      if(!modal.hidden && e.key === 'Escape') closeModal();
+      if (!modal || modal.hidden) return;
+      if (e.key === 'Escape') closeModal();
+    });
+    document.addEventListener('click', (e)=>{
+      if (!modal || modal.hidden) return;
+      if (e.target && e.target.closest && e.target.closest('.modal-close')) {
+        e.preventDefault();
+        return closeModal();
+      }
+      if (e.target === modal) {
+        e.preventDefault();
+        return closeModal();
+      }
     });
 
     form.addEventListener('submit', (e)=>{
@@ -284,6 +318,92 @@
 
       closeModal();
       render();
+    });
+
+    // ===== Manage Apps (list/delete/clear) =====
+    const btnManage = document.getElementById('btn-manage');
+    const manageModal = document.getElementById('manage-modal');
+    const manageBackdrop = document.getElementById('manage-backdrop');
+    const manageList = document.getElementById('manage-list');
+    const btnCloseManage = document.getElementById('btn-close-manage');
+    const btnClearAll = document.getElementById('btn-clear-all');
+
+    function openManage(){
+      renderManageList();
+      manageModal.hidden = false;
+      manageBackdrop.hidden = false;
+    }
+    function closeManage(){
+      manageModal.hidden = true;
+      manageBackdrop.hidden = true;
+    }
+    function renderManageList(){
+      const extra = loadLocalApps();
+      if(!extra.length){
+        manageList.innerHTML = '<div class="desc">Δεν υπάρχουν τοπικά apps.</div>';
+        return;
+      }
+      manageList.innerHTML = extra.map(a=>`
+        <div class="manage-row">
+          <div class="manage-info">
+            <div class="manage-name">${esc(a.name)}</div>
+            <div class="manage-meta">${esc(a.desc||'')}</div>
+          </div>
+          <div class="manage-actions">
+            <button class="btn" data-del="${esc(a.name)}">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    if (btnManage) btnManage.addEventListener('click', openManage);
+    if (btnCloseManage) btnCloseManage.addEventListener('click', closeManage);
+    if (manageBackdrop) manageBackdrop.addEventListener('click', closeManage);
+    document.addEventListener('click', (e)=>{
+      if (!manageModal || manageModal.hidden) return;
+      if (e.target && e.target.closest && e.target.closest('.modal-close')) {
+        e.preventDefault();
+        return closeManage();
+      }
+      if (e.target === manageModal) {
+        e.preventDefault();
+        return closeManage();
+      }
+      // delete buttons
+      const btn = e.target.closest && e.target.closest('[data-del]');
+      if(btn){
+        const name = btn.getAttribute('data-del');
+        const extra = loadLocalApps().filter(x=> (x.name||'').toLowerCase() !== (name||'').toLowerCase());
+        saveLocalApps(extra);
+        // refresh state.apps (re-merge with base)
+        fetch('apps.json?_='+Date.now())
+          .then(r=>r.json()).then(d=>{
+            const base = (d && Array.isArray(d.apps)) ? d.apps : [];
+            state.apps = mergeApps(base, extra);
+            render();
+            renderManageList();
+          }).catch(()=>{
+            state.apps = mergeApps([], extra);
+            render();
+            renderManageList();
+          });
+      }
+    });
+    if (btnClearAll) btnClearAll.addEventListener('click', ()=>{
+      if(confirm('Σίγουρα θέλεις να διαγράψεις ΟΛΑ τα τοπικά apps;')){
+        saveLocalApps([]);
+        fetch('apps.json?_='+Date.now())
+          .then(r=>r.json()).then(d=>{
+            const base = (d && Array.isArray(d.apps)) ? d.apps : [];
+            state.apps = mergeApps(base, []);
+            render();
+            renderManageList();
+          }).catch(()=>{
+            state.apps = mergeApps([], []);
+            render();
+            renderManageList();
+          });
+      }
     });
 
     // ===== PWA INSTALL BUTTON =====
