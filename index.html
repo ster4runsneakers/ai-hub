@@ -12,16 +12,42 @@
   <meta id="theme-color" name="theme-color" content="#0b0b10">
 
   <style>
+    /* --- THEME TOKENS ---
+       Βάση = LIGHT. Υπάρχουν δύο override μπλοκ:
+       1) [data-theme="dark"]  → force dark
+       2) [data-theme="auto"]  → default light, αλλά με media query γίνεται dark.
+    */
+
     :root{
-      /* Dark default */
+      /* Light defaults */
+      --bg:#fbfbfe; --card:#ffffff; --text:#11131a; --muted:#556070;
+      --ring:#e8e8f3; --brand:#5b55ff; --brand-2:#ff77aa;
+      --btn:#f4f4fb; --btn-text:#11131a;
+    }
+    [data-theme="light"]{
+      /* (ίδια με defaults – κρατάμε για σαφήνεια) */
+      --bg:#fbfbfe; --card:#ffffff; --text:#11131a; --muted:#556070;
+      --ring:#e8e8f3; --brand:#5b55ff; --brand-2:#ff77aa;
+      --btn:#f4f4fb; --btn-text:#11131a;
+    }
+    [data-theme="dark"]{
       --bg:#0b0b10; --card:#16161f; --text:#e8e8ff; --muted:#9aa0b4;
       --ring:#232334; --brand:#7b5cff; --brand-2:#ff6fb1;
       --btn:#1f1f2b; --btn-text:#e8e8ff;
     }
-    [data-theme="light"]{
+    /* AUTO: light by default… */
+    [data-theme="auto"]{
       --bg:#fbfbfe; --card:#ffffff; --text:#11131a; --muted:#556070;
       --ring:#e8e8f3; --brand:#5b55ff; --brand-2:#ff77aa;
       --btn:#f4f4fb; --btn-text:#11131a;
+    }
+    /* …και γίνεται dark όταν το σύστημα είναι dark */
+    @media (prefers-color-scheme: dark){
+      [data-theme="auto"]{
+        --bg:#0b0b10; --card:#16161f; --text:#e8e8ff; --muted:#9aa0b4;
+        --ring:#232334; --brand:#7b5cff; --brand-2:#ff6fb1;
+        --btn:#1f1f2b; --btn-text:#e8e8ff;
+      }
     }
 
     *{box-sizing:border-box}
@@ -69,9 +95,9 @@
         <span><strong>Ai Hub</strong> • Projects</span>
       </a>
       <div class="tools" role="group" aria-label="Theme">
-        <button class="btn" data-theme="light" aria-pressed="false">Light</button>
-        <button class="btn" data-theme="dark"  aria-pressed="false">Dark</button>
-        <button class="btn" data-theme="auto"  aria-pressed="false">Auto</button>
+        <button class="btn" data-theme-btn="light" aria-pressed="false">Light</button>
+        <button class="btn" data-theme-btn="dark"  aria-pressed="false">Dark</button>
+        <button class="btn" data-theme-btn="auto"  aria-pressed="false">Auto</button>
         <span id="theme-hint" class="hint"></span>
         <button id="btn-install" class="btn" style="margin-left:auto;display:none;">Install</button>
       </div>
@@ -97,38 +123,53 @@
     const root=document.documentElement;
     const metaTheme=document.getElementById('theme-color');
     const hintEl=document.getElementById('theme-hint');
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const mqDark = window.matchMedia('(prefers-color-scheme: dark)');
 
-    function systemPref(){ return mq.matches ? 'dark' : 'light'; }
+    function systemPref(){ return mqDark.matches ? 'dark' : 'light'; }
+
+    // Υπολογισμός "effective" (τι βλέπει ο χρήστης) με βάση τη λειτουργία
+    function effectiveTheme(mode){
+      if(mode==='auto') return systemPref();
+      return mode; // 'light' | 'dark'
+    }
+
+    function updateMetaTheme(mode){
+      const eff = effectiveTheme(mode);
+      metaTheme.setAttribute('content', eff==='dark' ? '#0b0b10' : '#fbfbfe');
+    }
 
     function applyTheme(mode){
-      const effective = (mode==='auto') ? systemPref() : mode;
-      root.setAttribute('data-theme', effective);
-      metaTheme.setAttribute('content', effective==='dark' ? '#0b0b10' : '#fbfbfe');
-      document.querySelectorAll('[data-theme]').forEach(b=>{
-        b.setAttribute('aria-pressed', String(b.dataset.theme===mode));
+      root.setAttribute('data-theme', mode);           // κρατάμε πάνω στο <html> το mode: light|dark|auto
+      updateMetaTheme(mode);                           // ενημέρωση browser UI
+      const eff = effectiveTheme(mode);
+      hintEl.textContent = mode==='auto' ? `Auto • system: ${eff}` : `Theme: ${mode}`;
+
+      // set pressed state μόνο στα buttons (όχι στο <html>)
+      document.querySelectorAll('.tools .btn[data-theme-btn]').forEach(b=>{
+        b.setAttribute('aria-pressed', String(b.dataset.themeBtn===mode));
       });
-      hintEl.textContent = mode==='auto' ? `Auto • system: ${effective}` : `Theme: ${mode}`;
     }
-    function setTheme(mode){ localStorage.setItem('hub_theme', mode); applyTheme(mode); }
+    function setTheme(mode){
+      localStorage.setItem('hub_theme', mode);
+      applyTheme(mode);
+    }
 
     const saved = localStorage.getItem('hub_theme') || 'auto';
     applyTheme(saved);
 
-    document.querySelectorAll('[data-theme]').forEach(b=>{
-      b.addEventListener('click', ()=> setTheme(b.dataset.theme));
+    // Click handlers μόνο για τα theme buttons
+    document.querySelectorAll('.tools .btn[data-theme-btn]').forEach(b=>{
+      b.addEventListener('click', ()=> setTheme(b.dataset.themeBtn));
     });
 
-    // Support both modern and old listeners
-    if (mq.addEventListener) {
-      mq.addEventListener('change', ()=> {
-        if ((localStorage.getItem('hub_theme')||'auto')==='auto') applyTheme('auto');
-      });
-    } else if (mq.addListener) {
-      mq.addListener(()=> {
-        if ((localStorage.getItem('hub_theme')||'auto')==='auto') applyTheme('auto');
-      });
-    }
+    // Ζωντανή αλλαγή όταν είμαστε σε AUTO και αλλάζει το system theme
+    const onSystemChange = ()=> {
+      if ((localStorage.getItem('hub_theme')||'auto')==='auto'){
+        applyTheme('auto');
+      }
+    };
+    if (mqDark.addEventListener) mqDark.addEventListener('change', onSystemChange);
+    else if (mqDark.addListener) mqDark.addListener(onSystemChange);
 
     // ===== APPS =====
     const state={apps:[], q:'', tag:''};
@@ -143,7 +184,7 @@
         const opt=document.createElement('option'); opt.value=t; opt.textContent=t; selTag.appendChild(opt);
       });
       render();
-    });
+    }).catch(()=>{ grid.innerHTML='<div class="desc">Δεν βρέθηκαν apps.</div>'; });
 
     function esc(s){return (s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));}
     function card(a){
