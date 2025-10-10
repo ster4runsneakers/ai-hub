@@ -10,7 +10,7 @@
   <link rel="icon" href="static/icons/icon-192.png">
   <link rel="apple-touch-icon" href="static/icons/icon-512.png">
   <meta id="theme-color" name="theme-color" content="#0b0b10">
-  <meta name="mobile-web-app-capable" content="yes"><!-- Chrome/Android -->
+  <meta name="mobile-web-app-capable" content="yes">
   <!-- iOS PWA polish -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -107,203 +107,252 @@
   </div>
 
   <script>
-    // ===== THEME =====
-    const root=document.documentElement;
-    const metaTheme=document.getElementById('theme-color');
-    const hintEl=document.getElementById('theme-hint');
-    const mqDark = window.matchMedia('(prefers-color-scheme: dark)');
-    const systemPref = ()=> mqDark.matches ? 'dark' : 'light';
-    const effectiveTheme = (mode)=> mode==='auto' ? systemPref() : mode;
-    const updateMetaTheme = (mode)=> {
-      const eff = effectiveTheme(mode);
-      metaTheme.setAttribute('content', eff==='dark' ? '#0b0b10' : '#fbfbfe');
-    };
-    function applyTheme(mode){
-      root.setAttribute('data-theme', mode);
-      updateMetaTheme(mode);
-      const eff = effectiveTheme(mode);
-      hintEl.textContent = mode==='auto' ? `Auto • system: ${eff}` : `Theme: ${mode}`;
-      document.querySelectorAll('.tools .btn[data-theme-btn]').forEach(b=>{
-        b.setAttribute('aria-pressed', String(b.dataset.themeBtn===mode));
+  (function(){
+    'use strict';
+    document.addEventListener('DOMContentLoaded', function(){
+
+      // ===== THEME =====
+      var root=document.documentElement;
+      var metaTheme=document.getElementById('theme-color');
+      var hintEl=document.getElementById('theme-hint');
+      var mqDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+      function systemPref(){ return mqDark.matches ? 'dark' : 'light'; }
+      function effectiveTheme(mode){ return mode==='auto' ? systemPref() : mode; }
+      function updateMetaTheme(mode){
+        var eff = effectiveTheme(mode);
+        metaTheme.setAttribute('content', eff==='dark' ? '#0b0b10' : '#fbfbfe');
+      }
+      function applyTheme(mode){
+        root.setAttribute('data-theme', mode);
+        updateMetaTheme(mode);
+        var eff = effectiveTheme(mode);
+        hintEl.textContent = mode==='auto' ? ('Auto • system: ' + eff) : ('Theme: ' + mode);
+        var btns = document.querySelectorAll('.tools .btn[data-theme-btn]');
+        for (var i=0;i<btns.length;i++){
+          btns[i].setAttribute('aria-pressed', String(btns[i].getAttribute('data-theme-btn')===mode));
+        }
+      }
+      function setTheme(mode){ localStorage.setItem('hub_theme',mode); applyTheme(mode); }
+
+      var saved = localStorage.getItem('hub_theme') || 'auto';
+      applyTheme(saved);
+      var themeBtns = document.querySelectorAll('.tools .btn[data-theme-btn]');
+      for (var j=0;j<themeBtns.length;j++){
+        themeBtns[j].addEventListener('click', (function(btn){
+          return function(){ setTheme(btn.getAttribute('data-theme-btn')); };
+        })(themeBtns[j]));
+      }
+      function onSystemChange(){
+        if ((localStorage.getItem('hub_theme')||'auto')==='auto') applyTheme('auto');
+      }
+      if (mqDark.addEventListener) mqDark.addEventListener('change', onSystemChange);
+      else if (mqDark.addListener) mqDark.addListener(onSystemChange);
+
+      // ===== APPS =====
+      var state={apps:[], q:'', tag:''};
+      var grid=document.getElementById('grid');
+      var selTag=document.getElementById('tag');
+      var inputQ=document.getElementById('q');
+      var LS_KEY = 'hub_user_apps_v1';
+
+      function loadLocalApps(){
+        try{
+          var raw = localStorage.getItem(LS_KEY);
+          if(!raw) return [];
+          var arr = JSON.parse(raw);
+          return Array.isArray(arr) ? arr : [];
+        }catch(e){ return []; }
+      }
+      function saveLocalApps(arr){ localStorage.setItem(LS_KEY, JSON.stringify(arr||[])); }
+      function mergeApps(base, extra){
+        var map = {};
+        base.forEach(function(a){ map[(a.name||'').toLowerCase()] = a; });
+        extra.forEach(function(a){ map[(a.name||'').toLowerCase()] = a; });
+        return Object.keys(map).map(function(k){ return map[k]; });
+      }
+
+      fetch('apps.json?_=' + Date.now())
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          var base = (d && Array.isArray(d.apps)) ? d.apps : [];
+          var extra = loadLocalApps();
+          state.apps = mergeApps(base, extra);
+
+          var tags={}; 
+          state.apps.forEach(function(a){ (a.tags||[]).forEach(function(t){ tags[t]=1; }); });
+          Object.keys(tags).sort().forEach(function(t){
+            var opt=document.createElement('option'); opt.value=t; opt.textContent=t; selTag.appendChild(opt);
+          });
+          render();
+        })
+        .catch(function(){
+          state.apps = mergeApps([], loadLocalApps());
+          render();
+        });
+
+      function esc(s){
+        return (s||'').replace(/[&<>"]/g,function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); });
+      }
+      function card(a){
+        var icon = a.icon ? '<img src="'+esc(a.icon)+'" alt="" width="24" height="24" style="border-radius:6px;border:1px solid var(--ring)">' : '🚀';
+        var tags = (a.tags||[]).map(function(t){ return '<span class="badge">'+esc(t)+'</span>'; }).join('');
+        var openBtn = a.url  ? '<a class="btn primary" href="'+esc(a.url)+'" target="_blank" rel="noopener">Open App</a>' : '';
+        var repoBtn = a.repo ? '<a class="btn" href="'+esc(a.repo)+'" target="_blank" rel="noopener">Repo</a>' : '';
+        var actions = (openBtn || repoBtn) ? '<div class="actions">'+openBtn+repoBtn+'</div>' : '<div class="actions"><span class="hint">🚧 Coming soon</span></div>';
+        return '<article class="card"><div style="display:flex;gap:10px;align-items:center"><div>'+icon+'</div><div class="title">'+esc(a.name)+'</div></div><div class="desc">'+esc(a.desc||'')+'</div><div class="badges">'+tags+'</div>'+actions+'</article>';
+      }
+      function render(){
+        var q=(state.q||'').toLowerCase(), tag=state.tag||'';
+        var list=state.apps.filter(function(a){
+          var hay=[a.name,a.desc,(a.repo||''),(a.url||''),(a.tags||[]).join(' ')].join(' ').toLowerCase();
+          return (!q||hay.indexOf(q)>-1) && (!tag||(a.tags||[]).indexOf(tag)>-1);
+        });
+        grid.innerHTML = list.map(card).join('') || '<div class="desc">Δεν βρέθηκαν apps.</div>';
+      }
+      inputQ.addEventListener('input',function(e){ state.q=e.target.value; render(); });
+      selTag.addEventListener('change',function(e){ state.tag=e.target.value; render(); });
+
+      // ===== MODALS (robust) =====
+      function q(sel){ return document.querySelector(sel); }
+      function hide(el){ if(el){ el.hidden = true; el.setAttribute('aria-hidden','true'); el.style.removeProperty('display'); } }
+      function show(el){ if(el){ el.hidden = false; el.removeAttribute('aria-hidden'); } }
+
+      // Add App
+      var btnAdd = q('#btn-add');
+      var addModal = q('#modal');
+      var addBackdrop = q('#modal-backdrop');
+      var addForm = q('#form-add-app');
+      var btnAddCancel = q('#btn-cancel');
+
+      // Manage
+      var btnManage = q('#btn-manage');
+      var manageModal = q('#manage-modal');
+      var manageBackdrop = q('#manage-backdrop');
+      var manageList = q('#manage-list');
+      var btnCloseManage = q('#btn-close-manage');
+      var btnClearAll = q('#btn-clear-all');
+
+      function closeAllModals(){
+        hide(addModal); hide(manageModal);
+        hide(addBackdrop); hide(manageBackdrop);
+        document.body.classList.remove('no-scroll');
+        if(addForm) addForm.reset();
+      }
+      function openAdd(){
+        show(addModal); show(addBackdrop);
+        document.body.classList.add('no-scroll');
+        var first = addForm && addForm.querySelector('input[name="name"]');
+        setTimeout(function(){ if(first) first.focus(); }, 0);
+      }
+      function openManage(){
+        renderManageList();
+        show(manageModal); show(manageBackdrop);
+        document.body.classList.add('no-scroll');
+      }
+
+      if (btnAdd) btnAdd.addEventListener('click', openAdd);
+      if (btnAddCancel) btnAddCancel.addEventListener('click', closeAllModals);
+      if (btnManage) btnManage.addEventListener('click', openManage);
+      if (btnCloseManage) btnCloseManage.addEventListener('click', closeAllModals);
+
+      document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeAllModals(); });
+      if (addBackdrop) addBackdrop.addEventListener('click', closeAllModals);
+      if (manageBackdrop) manageBackdrop.addEventListener('click', closeAllModals);
+
+      document.addEventListener('click', function(e){
+        var closeBtn = e.target && e.target.closest ? e.target.closest('.modal-close') : null;
+        if(closeBtn){ e.preventDefault(); return closeAllModals(); }
+        if(e.target===addModal || e.target===manageModal){ e.preventDefault(); return closeAllModals(); }
       });
-    }
-    function setTheme(mode){ localStorage.setItem('hub_theme',mode); applyTheme(mode); }
-    const saved = localStorage.getItem('hub_theme') || 'auto';
-    applyTheme(saved);
-    document.querySelectorAll('.tools .btn[data-theme-btn]').forEach(b=>{
-      b.addEventListener('click', ()=> setTheme(b.dataset.themeBtn));
-    });
-    const onSystemChange = ()=> {
-      if ((localStorage.getItem('hub_theme')||'auto')==='auto') applyTheme('auto');
-    };
-    if (mqDark.addEventListener) mqDark.addEventListener('change', onSystemChange);
-    else if (mqDark.addListener) mqDark.addListener(onSystemChange);
 
-    // ===== APPS (Add / Manage / localStorage) =====
-    const state={apps:[], q:'', tag:''};
-    const grid=document.getElementById('grid');
-    const selTag=document.getElementById('tag');
-    const inputQ=document.getElementById('q');
-    const LS_KEY = 'hub_user_apps_v1';
+      if (addForm){
+        addForm.addEventListener('submit', function(e){
+          e.preventDefault();
+          var fd=new FormData(addForm);
+          var name=(fd.get('name')||'').toString().trim();
+          if(!name) return;
+          var app={
+            name: name,
+            desc: (fd.get('desc')||'').toString().trim(),
+            url:  (fd.get('url')||'').toString().trim(),
+            repo: (fd.get('repo')||'').toString().trim(),
+            icon: (fd.get('icon')||'').toString().trim(),
+            tags: ((fd.get('tags')||'').toString().split(',').map(function(s){return s.trim();}).filter(Boolean)) || []
+          };
+          var extra = loadLocalApps();
+          var i=-1; for(var k=0;k<extra.length;k++){ if((extra[k].name||'').toLowerCase()===name.toLowerCase()){ i=k; break; } }
+          if(i>=0) extra[i]=app; else extra.push(app);
+          saveLocalApps(extra);
+          state.apps = mergeApps(state.apps, [app]);
+          app.tags.forEach(function(t){
+            var exists=false; for(var z=0;z<selTag.options.length;z++){ if(selTag.options[z].value===t){ exists=true; break; } }
+            if(!exists){ var o=document.createElement('option'); o.value=t; o.textContent=t; selTag.appendChild(o); }
+          });
+          render();
+          closeAllModals();
+        });
+      }
 
-    const loadLocalApps=()=>{ try{ const a=JSON.parse(localStorage.getItem(LS_KEY)||'[]'); return Array.isArray(a)?a:[];}catch{return[];} };
-    const saveLocalApps=(arr)=> localStorage.setItem(LS_KEY, JSON.stringify(arr||[]));
-    const mergeApps=(base, extra)=>{ const m=new Map(); base.forEach(a=>m.set((a.name||'').toLowerCase(),a)); extra.forEach(a=>m.set((a.name||'').toLowerCase(),a)); return [...m.values()]; };
-
-    fetch('apps.json?_='+Date.now())
-      .then(r=>r.json())
-      .then(d=>{
-        const base = (d && Array.isArray(d.apps)) ? d.apps : [];
-        const extra = loadLocalApps();
-        state.apps = mergeApps(base, extra);
-        const tags=new Set(); state.apps.forEach(a=> (a.tags||[]).forEach(t=> tags.add(t)));
-        [...tags].sort().forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=t; selTag.appendChild(o); });
-        render();
-      })
-      .catch(()=>{ state.apps = mergeApps([], loadLocalApps()); render(); });
-
-    const esc = (s)=> (s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
-    function card(a){
-      const icon = a.icon ? `<img src="${esc(a.icon)}" alt="" width="24" height="24" style="border-radius:6px;border:1px solid var(--ring)">` : '🚀';
-      const tags = (a.tags||[]).map(t=>`<span class="badge">${esc(t)}</span>`).join('');
-      const openBtn = a.url  ? `<a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open App</a>` : '';
-      const repoBtn = a.repo ? `<a class="btn" href="${esc(a.repo)}" target="_blank" rel="noopener">Repo</a>` : '';
-      const actions = (openBtn || repoBtn) ? `<div class="actions">${openBtn}${repoBtn}</div>` : `<div class="actions"><span class="hint">🚧 Coming soon</span></div>`;
-      return `<article class="card"><div style="display:flex;gap:10px;align-items:center"><div>${icon}</div><div class="title">${esc(a.name)}</div></div><div class="desc">${esc(a.desc||'')}</div><div class="badges">${tags}</div>${actions}</article>`;
-    }
-    function render(){
-      const q=(state.q||'').toLowerCase(), tag=state.tag||'';
-      const list=state.apps.filter(a=>{
-        const hay=[a.name,a.desc,(a.repo||''),(a.url||''),(a.tags||[]).join(' ')].join(' ').toLowerCase();
-        return (!q||hay.includes(q)) && (!tag||(a.tags||[]).includes(tag));
+      // Manage Apps
+      function renderManageList(){
+        var extra = loadLocalApps();
+        if(!extra.length){
+          manageList.innerHTML = '<div class="desc">Δεν υπάρχουν τοπικά apps.</div>';
+          return;
+        }
+        manageList.innerHTML = extra.map(function(a){
+          return '<div class="manage-row"><div class="manage-info"><div class="manage-name">'+esc(a.name)+'</div><div class="manage-meta">'+esc(a.desc||'')+'</div></div><div class="manage-actions"><button class="btn" data-del="'+esc(a.name)+'">Delete</button></div></div>';
+        }).join('');
+      }
+      document.addEventListener('click', function(e){
+        var btn = e.target && e.target.closest ? e.target.closest('[data-del]') : null;
+        if(!btn) return;
+        var name = btn.getAttribute('data-del');
+        var extra = loadLocalApps().filter(function(x){ return (x.name||'').toLowerCase() !== (name||'').toLowerCase(); });
+        saveLocalApps(extra);
+        fetch('apps.json?_=' + Date.now()).then(function(r){return r.json();}).then(function(d){
+          var base = (d && Array.isArray(d.apps)) ? d.apps : [];
+          state.apps = mergeApps(base, extra);
+          render(); renderManageList();
+        }).catch(function(){
+          state.apps = mergeApps([], extra);
+          render(); renderManageList();
+        });
       });
-      grid.innerHTML = list.map(a=>card(a)).join('') || '<div class="desc">Δεν βρέθηκαν apps.</div>';
-    }
-    inputQ.addEventListener('input',e=>{ state.q=e.target.value; render(); });
-    selTag.addEventListener('change',e=>{ state.tag=e.target.value; render(); });
+      if (btnClearAll){
+        btnClearAll.addEventListener('click', function(){
+          if(confirm('Σίγουρα θέλεις να διαγράψεις ΟΛΑ τα τοπικά apps;')){
+            saveLocalApps([]);
+            fetch('apps.json?_=' + Date.now()).then(function(r){return r.json();}).then(function(d){
+              var base = (d && Array.isArray(d.apps)) ? d.apps : [];
+              state.apps = mergeApps(base, []);
+              render(); renderManageList();
+            }).catch(function(){
+              state.apps = mergeApps([], []);
+              render(); renderManageList();
+            });
+          }
+        });
+      }
 
-    // ===== Modals: helpers (ΕΝΙΑΙΟ – τέλος στα κολλήματα) =====
-    const qs = (s, r=document)=> r.querySelector(s);
-    function hide(el){ if(el){ el.hidden = true; el.setAttribute('aria-hidden','true'); el.style.removeProperty('display'); } }
-    function show(el){ if(el){ el.hidden = false; el.removeAttribute('aria-hidden'); } }
+      // ===== PWA INSTALL =====
+      var deferredPrompt=null;
+      var installBtn=document.getElementById('btn-install');
+      window.addEventListener('beforeinstallprompt', function(e){
+        e.preventDefault(); deferredPrompt=e; installBtn.style.display='inline-block';
+      });
+      installBtn.addEventListener('click', function(){
+        if(!deferredPrompt) return;
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function(){ deferredPrompt=null; installBtn.style.display='none'; });
+      });
 
-    // Add App elements
-    const btnAdd = qs('#btn-add');
-    const addModal = qs('#modal');
-    const addBackdrop = qs('#modal-backdrop');
-    const addForm = qs('#form-add-app');
-    const btnAddCancel = qs('#btn-cancel');
-
-    // Manage elements
-    const btnManage = qs('#btn-manage');
-    const manageModal = qs('#manage-modal');
-    const manageBackdrop = qs('#manage-backdrop');
-    const manageList = qs('#manage-list');
-    const btnCloseManage = qs('#btn-close-manage');
-    const btnClearAll = qs('#btn-clear-all');
-
-    function closeAllModals(){
-      hide(addModal); hide(manageModal);
-      hide(addBackdrop); hide(manageBackdrop);
-      document.body.classList.remove('no-scroll');
-      if(addForm) addForm.reset();
-    }
-    function openAdd(){
-      show(addModal); show(addBackdrop);
-      document.body.classList.add('no-scroll');
-      const first = qs('input[name="name"]', addForm);
-      setTimeout(()=> first && first.focus(), 0);
-    }
-    function openManage(){
-      renderManageList();
-      show(manageModal); show(manageBackdrop);
-      document.body.classList.add('no-scroll');
-    }
-
-    btnAdd?.addEventListener('click', openAdd);
-    btnAddCancel?.addEventListener('click', closeAllModals);
-    btnManage?.addEventListener('click', openManage);
-    btnCloseManage?.addEventListener('click', closeAllModals);
-
-    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeAllModals(); });
-    addBackdrop?.addEventListener('click', closeAllModals);
-    manageBackdrop?.addEventListener('click', closeAllModals);
-    document.addEventListener('click', (e)=>{
-      if(e.target?.closest?.('.modal-close')) { e.preventDefault(); closeAllModals(); }
-      if(e.target===addModal || e.target===manageModal){ e.preventDefault(); closeAllModals(); }
-    });
-
-    // Submit Add App
-    addForm?.addEventListener('submit', (e)=>{
-      e.preventDefault();
-      const fd=new FormData(addForm);
-      const name=(fd.get('name')||'').toString().trim();
-      if(!name) return;
-      const app={
-        name,
-        desc:(fd.get('desc')||'').toString().trim(),
-        url:(fd.get('url')||'').toString().trim(),
-        repo:(fd.get('repo')||'').toString().trim(),
-        icon:(fd.get('icon')||'').toString().trim(),
-        tags:((fd.get('tags')||'').toString().split(',').map(s=>s.trim()).filter(Boolean))||[]
-      };
-      const extra=loadLocalApps();
-      const i=extra.findIndex(x=>(x.name||'').toLowerCase()===name.toLowerCase());
-      if(i>=0) extra[i]=app; else extra.push(app);
-      saveLocalApps(extra);
-      state.apps = mergeApps(state.apps, [app]);
-      app.tags.forEach(t=>{ if(![...selTag.options].some(o=>o.value===t)){ const o=document.createElement('option'); o.value=t; o.textContent=t; selTag.appendChild(o); }});
-      render();
-      closeAllModals();
-    });
-
-    // Manage Apps
-    function renderManageList(){
-      const extra=loadLocalApps();
-      if(!extra.length){ manageList.innerHTML='<div class="desc">Δεν υπάρχουν τοπικά apps.</div>'; return; }
-      manageList.innerHTML=extra.map(a=>`
-        <div class="manage-row">
-          <div class="manage-info">
-            <div class="manage-name">${esc(a.name)}</div>
-            <div class="manage-meta">${esc(a.desc||'')}</div>
-          </div>
-          <div class="manage-actions"><button class="btn" data-del="${esc(a.name)}">Delete</button></div>
-        </div>`).join('');
-    }
-    document.addEventListener('click', (e)=>{
-      const del=e.target.closest?.('[data-del]');
-      if(!del) return;
-      const name=del.getAttribute('data-del');
-      const extra=loadLocalApps().filter(x=>(x.name||'').toLowerCase()!==(name||'').toLowerCase());
-      saveLocalApps(extra);
-      fetch('apps.json?_='+Date.now()).then(r=>r.json()).then(d=>{
-        const base=(d && Array.isArray(d.apps))?d.apps:[];
-        state.apps = mergeApps(base, extra);
-        render(); renderManageList();
-      }).catch(()=>{ state.apps=mergeApps([],extra); render(); renderManageList(); });
-    });
-    btnClearAll?.addEventListener('click', ()=>{
-      if(confirm('Σίγουρα θέλεις να διαγράψεις ΟΛΑ τα τοπικά apps;')){
-        saveLocalApps([]);
-        fetch('apps.json?_='+Date.now()).then(r=>r.json()).then(d=>{
-          const base=(d && Array.isArray(d.apps))?d.apps:[];
-          state.apps=mergeApps(base, []); render(); renderManageList();
-        }).catch(()=>{ state.apps=mergeApps([], []); render(); renderManageList(); });
+      if('serviceWorker' in navigator){
+        navigator.serviceWorker.register('service-worker.js').catch(function(err){ console.warn(err); });
       }
     });
-
-    // ===== PWA INSTALL =====
-    let deferredPrompt=null;
-    const installBtn=document.getElementById('btn-install');
-    window.addEventListener('beforeinstallprompt', (e)=>{
-      e.preventDefault(); deferredPrompt=e; installBtn.style.display='inline-block';
-      // (προαιρετικό auto-prompt μία φορά)
-      // if(!localStorage.getItem('pwa_prompt_shown')){ setTimeout(async()=>{ try{ await deferredPrompt.prompt(); await deferredPrompt.userChoice; }catch{} localStorage.setItem('pwa_prompt_shown','1'); }, 800); }
-    });
-    installBtn.addEventListener('click', async ()=>{
-      if(!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; installBtn.style.display='none';
-    });
-    if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js').catch(console.warn); }
+  })();
   </script>
 </body>
 </html>
