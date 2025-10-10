@@ -90,7 +90,7 @@ footer{
   display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap
 }
 
-/* ================== MODAL ================== */
+/* ================== MODALS ================== */
 .modal-backdrop{
   position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:saturate(120%) blur(2px);z-index:90;
 }
@@ -98,7 +98,7 @@ footer{
   position:fixed;inset:0;display:grid;place-items:center;z-index:100;
 }
 .modal-card{
-  width:min(520px,92vw);
+  width:min(560px,92vw);
   background:var(--card); color:var(--text);
   border:1px solid var(--ring); border-radius:16px; padding:16px;
   box-shadow:0 10px 30px rgba(0,0,0,.25);
@@ -111,6 +111,16 @@ footer{
   background:var(--bg);color:var(--text)
 }
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+
+/* ===== Manage list ===== */
+.manage-list{display:grid;gap:8px;margin:10px 0}
+.manage-row{
+  display:flex;align-items:center;justify-content:space-between;
+  border:1px solid var(--ring);border-radius:12px;padding:10px;background:var(--card);
+}
+.manage-info{display:grid;gap:4px}
+.manage-name{font-weight:700}
+.manage-meta{color:var(--muted);font-size:13px}
 
 /* ================== RESPONSIVE ================== */
 @media (max-width:540px){
