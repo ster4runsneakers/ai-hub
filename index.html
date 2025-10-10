@@ -104,56 +104,170 @@
     if (mqDark.addEventListener) mqDark.addEventListener('change', onSystemChange);
     else if (mqDark.addListener) mqDark.addListener(onSystemChange);
 
-    // ===== APPS =====
-    const state={apps:[], q:'', tag:''};
-    const grid=document.getElementById('grid');
-    const selTag=document.getElementById('tag');
-    const inputQ=document.getElementById('q');
+    // // ===== APPS =====
+const state={apps:[], q:'', tag:''};
+const grid=document.getElementById('grid');
+const selTag=document.getElementById('tag');
+const inputQ=document.getElementById('q');
 
-    fetch('apps.json?_='+Date.now())
-      .then(r=>r.json())
-      .then(d=>{
-        state.apps=d.apps||[];
-        const tags=new Set(); state.apps.forEach(a=> (a.tags||[]).forEach(t=> tags.add(t)));
-        [...tags].sort().forEach(t=>{
-          const opt=document.createElement('option'); opt.value=t; opt.textContent=t; selTag.appendChild(opt);
-        });
-        render();
-      })
-      .catch(()=>{ grid.innerHTML='<div class="desc">Δεν βρέθηκαν apps.</div>'; });
+// Local additions key
+const LS_KEY = 'hub_user_apps_v1';
 
-    const esc = (s)=> (s||'').replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
-    function card(a){
-      const icon = a.icon ? `<img src="${esc(a.icon)}" alt="" width="24" height="24" style="border-radius:6px;border:1px solid var(--ring)">` : '🚀';
-      const tags = (a.tags||[]).map(t=>`<span class="badge">${esc(t)}</span>`).join('');
+// Load local apps from localStorage
+function loadLocalApps(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  }catch(e){ return []; }
+}
 
-      const openBtn = a.url  ? `<a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open App</a>` : '';
-      const repoBtn = a.repo ? `<a class="btn" href="${esc(a.repo)}" target="_blank" rel="noopener">Repo</a>` : '';
-      const actions = (openBtn || repoBtn)
-        ? `<div class="actions">${openBtn}${repoBtn}</div>`
-        : `<div class="actions"><span class="hint">🚧 Coming soon</span></div>`;
+// Save local apps
+function saveLocalApps(arr){
+  localStorage.setItem(LS_KEY, JSON.stringify(arr||[]));
+}
 
-      return `
-        <article class="card">
-          <div style="display:flex;gap:10px;align-items:center">
-            <div>${icon}</div><div class="title">${esc(a.name)}</div>
-          </div>
-          <div class="desc">${esc(a.desc||'')}</div>
-          <div class="badges">${tags}</div>
-          ${actions}
-        </article>`;
+// Merge base apps (from apps.json) with local additions (by unique name)
+function mergeApps(base, extra){
+  const map = new Map();
+  base.forEach(a=> map.set((a.name||'').toLowerCase(), a));
+  extra.forEach(a=> map.set((a.name||'').toLowerCase(), a));
+  return [...map.values()];
+}
+
+// Fetch base apps then merge with local
+fetch('apps.json?_='+Date.now())
+  .then(r=>r.json())
+  .then(d=>{
+    const base = (d && Array.isArray(d.apps)) ? d.apps : [];
+    const extra = loadLocalApps();
+    state.apps = mergeApps(base, extra);
+
+    // Build tag list
+    const tags=new Set();
+    state.apps.forEach(a=> (a.tags||[]).forEach(t=> tags.add(t)));
+    [...tags].sort().forEach(t=>{
+      const opt=document.createElement('option'); 
+      opt.value=t; opt.textContent=t; 
+      selTag.appendChild(opt);
+    });
+    render();
+  })
+  .catch(()=>{
+    state.apps = mergeApps([], loadLocalApps());
+    render();
+  });
+
+function esc(s){
+  return (s||'').replace(/[&<>"]/g,c=>(
+    { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]
+  ));
+}
+
+function card(a){
+  const icon = a.icon 
+    ? `<img src="${esc(a.icon)}" alt="" width="24" height="24" style="border-radius:6px;border:1px solid var(--ring)">`
+    : '🚀';
+  const tags = (a.tags||[]).map(t=>`<span class="badge">${esc(t)}</span>`).join('');
+
+  const openBtn = a.url 
+    ? `<a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Open App</a>` 
+    : '';
+  const repoBtn = a.repo 
+    ? `<a class="btn" href="${esc(a.repo)}" target="_blank" rel="noopener">Repo</a>` 
+    : '';
+  const actions = (openBtn || repoBtn)
+    ? `<div class="actions">${openBtn}${repoBtn}</div>`
+    : `<div class="actions"><span class="hint">🚧 Coming soon</span></div>`;
+
+  return `
+    <article class="card">
+      <div style="display:flex;gap:10px;align-items:center">
+        <div>${icon}</div><div class="title">${esc(a.name)}</div>
+      </div>
+      <div class="desc">${esc(a.desc||'')}</div>
+      <div class="badges">${tags}</div>
+      ${actions}
+    </article>`;
+}
+
+function render(){
+  const q=(state.q||'').toLowerCase(), tag=state.tag||'';
+  const list=state.apps.filter(a=>{
+    const hay = [a.name,a.desc,(a.repo||''),(a.url||''),(a.tags||[]).join(' ')].join(' ').toLowerCase();
+    const matchesQ = !q || hay.includes(q);
+    const matchesTag = !tag || (a.tags||[]).includes(tag);
+    return matchesQ && matchesTag;
+  });
+  grid.innerHTML = list.map(a=>card(a)).join('') || '<div class="desc">Δεν βρέθηκαν apps.</div>';
+}
+
+inputQ.addEventListener('input',e=>{ state.q=e.target.value; render(); });
+selTag.addEventListener('change',e=>{ state.tag=e.target.value; render(); });
+
+// ===== Add App modal logic =====
+const btnAdd = document.getElementById('btn-add');
+const modal = document.getElementById('modal');
+const backdrop = document.getElementById('modal-backdrop');
+const form = document.getElementById('form-add-app');
+const btnCancel = document.getElementById('btn-cancel');
+
+function openModal(){
+  modal.hidden = false;
+  backdrop.hidden = false;
+  // focus first field
+  const first = form.querySelector('input[name="name"]');
+  setTimeout(()=> first && first.focus(), 0);
+}
+function closeModal(){
+  modal.hidden = true;
+  backdrop.hidden = true;
+  form.reset();
+}
+
+btnAdd.addEventListener('click', openModal);
+btnCancel.addEventListener('click', closeModal);
+backdrop.addEventListener('click', closeModal);
+document.addEventListener('keydown', (e)=> {
+  if(!modal.hidden && e.key === 'Escape') closeModal();
+});
+
+form.addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const fd = new FormData(form);
+  const name = (fd.get('name')||'').toString().trim();
+  if(!name){ return; }
+
+  const app = {
+    name,
+    desc: (fd.get('desc')||'').toString().trim(),
+    url:  (fd.get('url')||'').toString().trim(),
+    repo: (fd.get('repo')||'').toString().trim(),
+    icon: (fd.get('icon')||'').toString().trim(),
+    tags: ((fd.get('tags')||'').toString().split(',').map(s=>s.trim()).filter(Boolean)) || []
+  };
+
+  // Update localStorage
+  const extra = loadLocalApps();
+  const idx = extra.findIndex(x => (x.name||'').toLowerCase() === name.toLowerCase());
+  if(idx >= 0) extra[idx] = app; else extra.push(app);
+  saveLocalApps(extra);
+
+  // Update state & UI
+  state.apps = mergeApps(state.apps, [app]);
+
+  // Ensure new tags appear in filter
+  app.tags.forEach(t=>{
+    if(![...selTag.options].some(o=>o.value===t)){
+      const opt=document.createElement('option'); opt.value=t; opt.textContent=t; selTag.appendChild(opt);
     }
-    function render(){
-      const q=(state.q||'').toLowerCase(), tag=state.tag||'';
-      const list=state.apps.filter(a=>{
-        const matchesQ = !q || [a.name,a.desc,(a.repo||''),(a.url||''),(a.tags||[]).join(' ')].join(' ').toLowerCase().includes(q);
-        const matchesTag=!tag || (a.tags||[]).includes(tag);
-        return matchesQ && matchesTag;
-      });
-      grid.innerHTML = list.map(a=>card(a)).join('') || '<div class="desc">Δεν βρέθηκαν apps.</div>';
-    }
-    inputQ.addEventListener('input',e=>{ state.q=e.target.value; render(); });
-    selTag.addEventListener('change',e=>{ state.tag=e.target.value; render(); });
+  });
+
+  closeModal();
+  render();
+});
+
 
     // ===== PWA INSTALL BUTTON =====
     let deferredPrompt=null;
@@ -179,4 +293,5 @@
   </script>
 </body>
 </html>
+
 
