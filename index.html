@@ -10,7 +10,7 @@
   <link rel="icon" href="static/icons/icon-192.png">
   <link rel="apple-touch-icon" href="static/icons/icon-512.png">
   <meta id="theme-color" name="theme-color" content="#0b0b10">
-  <meta name="mobile-web-app-capable" content="yes"><!-- for Chrome/Android -->
+  <meta name="mobile-web-app-capable" content="yes"><!-- Chrome/Android -->
   <!-- iOS PWA polish -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -182,50 +182,83 @@
     inputQ.addEventListener('input',e=>{ state.q=e.target.value; render(); });
     selTag.addEventListener('change',e=>{ state.tag=e.target.value; render(); });
 
-    // Add App modal
-    const btnAdd = document.getElementById('btn-add');
-    const modal = document.getElementById('modal');
-    const backdrop = document.getElementById('modal-backdrop');
-    const form = document.getElementById('form-add-app');
-    const btnCancel = document.getElementById('btn-cancel');
-    const openModal=()=>{ modal.hidden=false; backdrop.hidden=false; setTimeout(()=> form.querySelector('input[name="name"]').focus(),0); };
-    const closeModal=()=>{ modal.hidden=true; backdrop.hidden=true; form.reset(); };
-    btnAdd.addEventListener('click', openModal);
-    btnCancel.addEventListener('click', closeModal);
-    backdrop.addEventListener('click', closeModal);
-    document.addEventListener('keydown', e=>{ if(!modal.hidden && e.key==='Escape') closeModal(); });
-    document.addEventListener('click', e=>{ if(!modal.hidden && (e.target===modal || e.target.closest('.modal-close'))) closeModal(); });
-    form.addEventListener('submit', e=>{
+    // ===== Modals: helpers (ΕΝΙΑΙΟ – τέλος στα κολλήματα) =====
+    const qs = (s, r=document)=> r.querySelector(s);
+    function hide(el){ if(el){ el.hidden = true; el.setAttribute('aria-hidden','true'); el.style.removeProperty('display'); } }
+    function show(el){ if(el){ el.hidden = false; el.removeAttribute('aria-hidden'); } }
+
+    // Add App elements
+    const btnAdd = qs('#btn-add');
+    const addModal = qs('#modal');
+    const addBackdrop = qs('#modal-backdrop');
+    const addForm = qs('#form-add-app');
+    const btnAddCancel = qs('#btn-cancel');
+
+    // Manage elements
+    const btnManage = qs('#btn-manage');
+    const manageModal = qs('#manage-modal');
+    const manageBackdrop = qs('#manage-backdrop');
+    const manageList = qs('#manage-list');
+    const btnCloseManage = qs('#btn-close-manage');
+    const btnClearAll = qs('#btn-clear-all');
+
+    function closeAllModals(){
+      hide(addModal); hide(manageModal);
+      hide(addBackdrop); hide(manageBackdrop);
+      document.body.classList.remove('no-scroll');
+      if(addForm) addForm.reset();
+    }
+    function openAdd(){
+      show(addModal); show(addBackdrop);
+      document.body.classList.add('no-scroll');
+      const first = qs('input[name="name"]', addForm);
+      setTimeout(()=> first && first.focus(), 0);
+    }
+    function openManage(){
+      renderManageList();
+      show(manageModal); show(manageBackdrop);
+      document.body.classList.add('no-scroll');
+    }
+
+    btnAdd?.addEventListener('click', openAdd);
+    btnAddCancel?.addEventListener('click', closeAllModals);
+    btnManage?.addEventListener('click', openManage);
+    btnCloseManage?.addEventListener('click', closeAllModals);
+
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeAllModals(); });
+    addBackdrop?.addEventListener('click', closeAllModals);
+    manageBackdrop?.addEventListener('click', closeAllModals);
+    document.addEventListener('click', (e)=>{
+      if(e.target?.closest?.('.modal-close')) { e.preventDefault(); closeAllModals(); }
+      if(e.target===addModal || e.target===manageModal){ e.preventDefault(); closeAllModals(); }
+    });
+
+    // Submit Add App
+    addForm?.addEventListener('submit', (e)=>{
       e.preventDefault();
-      const fd=new FormData(form);
+      const fd=new FormData(addForm);
+      const name=(fd.get('name')||'').toString().trim();
+      if(!name) return;
       const app={
-        name:(fd.get('name')||'').toString().trim(),
+        name,
         desc:(fd.get('desc')||'').toString().trim(),
         url:(fd.get('url')||'').toString().trim(),
         repo:(fd.get('repo')||'').toString().trim(),
         icon:(fd.get('icon')||'').toString().trim(),
         tags:((fd.get('tags')||'').toString().split(',').map(s=>s.trim()).filter(Boolean))||[]
       };
-      if(!app.name) return;
       const extra=loadLocalApps();
-      const i=extra.findIndex(x=>(x.name||'').toLowerCase()===app.name.toLowerCase());
+      const i=extra.findIndex(x=>(x.name||'').toLowerCase()===name.toLowerCase());
       if(i>=0) extra[i]=app; else extra.push(app);
       saveLocalApps(extra);
       state.apps = mergeApps(state.apps, [app]);
       app.tags.forEach(t=>{ if(![...selTag.options].some(o=>o.value===t)){ const o=document.createElement('option'); o.value=t; o.textContent=t; selTag.appendChild(o); }});
-      closeModal(); render();
+      render();
+      closeAllModals();
     });
 
     // Manage Apps
-    const btnManage=document.getElementById('btn-manage');
-    const manageModal=document.getElementById('manage-modal');
-    const manageBackdrop=document.getElementById('manage-backdrop');
-    const manageList=document.getElementById('manage-list');
-    const btnCloseManage=document.getElementById('btn-close-manage');
-    const btnClearAll=document.getElementById('btn-clear-all');
-    const openManage=()=>{ renderManageList(); manageModal.hidden=false; manageBackdrop.hidden=false; };
-    const closeManage=()=>{ manageModal.hidden=true; manageBackdrop.hidden=true; };
-    const renderManageList=()=>{
+    function renderManageList(){
       const extra=loadLocalApps();
       if(!extra.length){ manageList.innerHTML='<div class="desc">Δεν υπάρχουν τοπικά apps.</div>'; return; }
       manageList.innerHTML=extra.map(a=>`
@@ -236,30 +269,25 @@
           </div>
           <div class="manage-actions"><button class="btn" data-del="${esc(a.name)}">Delete</button></div>
         </div>`).join('');
-    };
-    btnManage.addEventListener('click', openManage);
-    btnCloseManage.addEventListener('click', closeManage);
-    manageBackdrop.addEventListener('click', closeManage);
-    document.addEventListener('click', e=>{
-      if(manageModal.hidden) return;
-      if(e.target===manageModal || e.target.closest('.modal-close')) return closeManage();
+    }
+    document.addEventListener('click', (e)=>{
       const del=e.target.closest?.('[data-del]');
-      if(del){
-        const name=del.getAttribute('data-del');
-        const extra=loadLocalApps().filter(x=>(x.name||'').toLowerCase()!==(name||'').toLowerCase());
-        saveLocalApps(extra);
-        fetch('apps.json?_='+Date.now()).then(r=>r.json()).then(d=>{
-          const base=(d && Array.isArray(d.apps))?d.apps:[];
-          state.apps = mergeApps(base, extra);
-          render(); renderManageList();
-        }).catch(()=>{ state.apps=mergeApps([],extra); render(); renderManageList(); });
-      }
+      if(!del) return;
+      const name=del.getAttribute('data-del');
+      const extra=loadLocalApps().filter(x=>(x.name||'').toLowerCase()!==(name||'').toLowerCase());
+      saveLocalApps(extra);
+      fetch('apps.json?_='+Date.now()).then(r=>r.json()).then(d=>{
+        const base=(d && Array.isArray(d.apps))?d.apps:[];
+        state.apps = mergeApps(base, extra);
+        render(); renderManageList();
+      }).catch(()=>{ state.apps=mergeApps([],extra); render(); renderManageList(); });
     });
-    btnClearAll.addEventListener('click', ()=>{
+    btnClearAll?.addEventListener('click', ()=>{
       if(confirm('Σίγουρα θέλεις να διαγράψεις ΟΛΑ τα τοπικά apps;')){
         saveLocalApps([]);
         fetch('apps.json?_='+Date.now()).then(r=>r.json()).then(d=>{
-          const base=(d && Array.isArray(d.apps))?d.apps:[]; state.apps=mergeApps(base, []); render(); renderManageList();
+          const base=(d && Array.isArray(d.apps))?d.apps:[];
+          state.apps=mergeApps(base, []); render(); renderManageList();
         }).catch(()=>{ state.apps=mergeApps([], []); render(); renderManageList(); });
       }
     });
