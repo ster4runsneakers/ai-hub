@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="el" data-theme="auto">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sneakers Tools • Ai Hub</title>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="static/icons/icon-192.png">
+  <meta id="theme-color" name="theme-color" content="#0b0b10">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="brand" href="index.html">
+        <span class="logo">AI</span>
+        <span><strong>Ai Hub</strong> • Sneakers Tools</span>
+      </a>
+      <div class="tools" role="group" aria-label="Theme">
+        <button class="btn" data-theme-btn="light" aria-pressed="false">Light</button>
+        <button class="btn" data-theme-btn="dark"  aria-pressed="false">Dark</button>
+        <button class="btn" data-theme-btn="auto"  aria-pressed="false">Auto</button>
+        <span id="theme-hint" class="hint"></span>
+      </div>
+    </header>
+
+    <section class="grid">
+      <!-- Size Converter -->
+      <article class="card">
+        <div class="title">Size Converter (EU ⇄ US/UK)</div>
+        <div class="desc">Πρόχειρη αντιστοίχιση με ενδεικτικές τιμές. Πάντα ελέγχεις τον κατασκευαστή.</div>
+        <div class="modal-form">
+          <label><span>EU Size</span><input id="eu" placeholder="π.χ. 42"></label>
+          <button id="btn-convert" class="btn primary">Convert</button>
+          <div id="out" class="desc"></div>
+        </div>
+      </article>
+
+      <!-- SKU Builder -->
+      <article class="card">
+        <div class="title">SKU Builder</div>
+        <div class="desc">Φτιάξε γρήγορα SKU: BRAND-MODEL-COLOR-GEN-EUxx-YYMMDD</div>
+        <div class="modal-form">
+          <label><span>Brand</span><input id="brand" placeholder="NIKE"></label>
+          <label><span>Model</span><input id="model" placeholder="AIRMAX"></label>
+          <label><span>Color</span><input id="color" placeholder="RED-BLACK"></label>
+          <label><span>Gender</span>
+            <select id="gender">
+              <option value="U">U (Unisex)</option>
+              <option value="M">M (Men)</option>
+              <option value="W">W (Women)</option>
+            </select>
+          </label>
+          <label><span>EU Size</span><input id="sizeeu" placeholder="42"></label>
+          <button id="btn-sku" class="btn primary">Generate</button>
+          <div id="sku" class="desc"></div>
+        </div>
+      </article>
+    </section>
+
+    <footer>
+      <div>© 2025 Ai Hub</div>
+      <div>Utility mini app</div>
+    </footer>
+  </div>
+
+  <script>
+  (function(){
+    'use strict';
+    document.addEventListener('DOMContentLoaded', function(){
+      // theme
+      var root=document.documentElement, metaTheme=document.getElementById('theme-color');
+      var hint=document.getElementById('theme-hint');
+      var mqDark=window.matchMedia('(prefers-color-scheme: dark)');
+      function systemPref(){ return mqDark.matches?'dark':'light'; }
+      function effectiveTheme(m){ return m==='auto'?systemPref():m; }
+      function setMeta(m){ metaTheme.setAttribute('content', effectiveTheme(m)==='dark'?'#0b0b10':'#fbfbfe'); }
+      function apply(m){
+        root.setAttribute('data-theme', m); setMeta(m);
+        var eff=effectiveTheme(m); hint.textContent=m==='auto'?('Auto • system: '+eff):('Theme: '+m);
+        var btns=document.querySelectorAll('[data-theme-btn]');
+        for(var i=0;i<btns.length;i++){ btns[i].setAttribute('aria-pressed', String(btns[i].getAttribute('data-theme-btn')===m)); }
+      }
+      var saved=localStorage.getItem('hub_theme')||'auto'; apply(saved);
+      var btns=document.querySelectorAll('[data-theme-btn]');
+      for(var i=0;i<btns.length;i++){ btns[i].addEventListener('click', (function(b){ return function(){ var m=b.getAttribute('data-theme-btn'); localStorage.setItem('hub_theme',m); apply(m); }; })(btns[i])); }
+
+      // Size converter
+      var table = [
+        {eu:36, usm:4,   usw:5.5, uk:3.5},
+        {eu:37, usm:5,   usw:6.5, uk:4.5},
+        {eu:38, usm:6,   usw:7.5, uk:5.5},
+        {eu:39, usm:6.5, usw:8,   uk:6},
+        {eu:40, usm:7,   usw:8.5, uk:6.5},
+        {eu:41, usm:8,   usw:9.5, uk:7.5},
+        {eu:42, usm:8.5, usw:10,  uk:8},
+        {eu:43, usm:9.5, usw:11,  uk:9},
+        {eu:44, usm:10,  usw:11.5,uk:9.5},
+        {eu:45, usm:11,  usw:12.5,uk:10.5},
+        {eu:46, usm:12,  usw:13.5,uk:11.5},
+        {eu:47, usm:12.5,usw:14,  uk:12},
+        {eu:48, usm:13,  usw:15,  uk:13}
+      ];
+      function convertEU(x){
+        var n=parseFloat(x); if(isNaN(n)) return null;
+        var row=table.find(function(r){ return r.eu===Math.round(n); });
+        return row||null;
+      }
+      var eu=document.getElementById('eu'), btnc=document.getElementById('btn-convert'), out=document.getElementById('out');
+      btnc.addEventListener('click', function(){
+        var r=convertEU(eu.value);
+        if(!r){ out.textContent='Δεν βρέθηκε στο δείγμα. Δοκίμασε άλλο EU ή έλεγξε επίσημο chart.'; return; }
+        out.textContent='US (Men): '+r.usm+' • US (Women): '+r.usw+' • UK: '+r.uk+'  — ενδεικτικά.';
+      });
+
+      // SKU builder
+      function slug(s){ return String(s||'').toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+      var b=document.getElementById('brand'), m=document.getElementById('model'), c=document.getElementById('color'), g=document.getElementById('gender'), se=document.getElementById('sizeeu'), btns=document.getElementById('btn-sku'), outsku=document.getElementById('sku');
+      btns.addEventListener('click', function(){
+        var d=new Date(), y=String(d.getFullYear()).slice(2), mm=('0'+(d.getMonth()+1)).slice(-2), dd=('0'+d.getDate()).slice(-2);
+        var sku=[slug(b.value), slug(m.value), slug(c.value), (g.value||'U'), 'EU'+slug(se.value||'') , y+mm+dd].filter(Boolean).join('-');
+        outsku.textContent=sku || 'Συμπλήρωσε πεδία για να δημιουργηθεί SKU.';
+      });
+    });
+  })();
+  </script>
+</body>
+</html>
