@@ -1,4 +1,4 @@
-const CACHE = 'ai-hub-v4';
+const CACHE = 'ai-hub-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -8,7 +8,8 @@ const ASSETS = [
   './static/icons/icon-192.png',
   './static/icons/icon-512.png',
   './static/screenshots/wide-1280x720.png',
-  './static/screenshots/mobile-540x720.png'
+  './static/screenshots/mobile-540x720.png',
+  './manifest.webmanifest?v=5'
 ];
 
 self.addEventListener('install', (e)=>{
