@@ -10,11 +10,11 @@
     },
     {
       "name": "Sneakers Tools",
-      "desc": "Demo utilities for shop ops.",
+      "desc": "Size Converter & SKU Builder.",
       "tags": ["ecommerce", "utils"],
       "icon": "static/icons/icon-192.png",
-      "url": "https://example.com/sneakers-tools",
-      "repo": "https://github.com/you/sneakers-tools"
+      "url": "sneakers.html",
+      "repo": ""
     },
     {
       "name": "Creator Packs",
