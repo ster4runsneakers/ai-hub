@@ -4,27 +4,47 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ai Hub</title>
-  <meta name="theme-color" content="#7b5cff">
+
+  <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="static/icons/icon-192.png">
   <link rel="apple-touch-icon" href="static/icons/icon-512.png">
+  <meta id="theme-color" name="theme-color" content="#7b5cff">
+
   <style>
-    :root{ --bg:#0b0b10; --card:#16161f; --text:#e8e8ff; --muted:#9aa0b4; --brand:#7b5cff; --ring:#2a2a38; }
-    [data-theme="light"]{ --bg:#fbfbfe; --card:#ffffff; --text:#11131a; --muted:#556070; --ring:#e8e8f3; }
+    :root{
+      /* Dark (default) */
+      --bg:#0b0b10; --card:#16161f; --text:#e8e8ff; --muted:#9aa0b4;
+      --ring:#232334; --brand:#7b5cff; --brand-2:#ff6fb1;
+      --btn:#1f1f2b; --btn-text:#e8e8ff;
+    }
+    [data-theme="light"]{
+      --bg:#fbfbfe; --card:#ffffff; --text:#11131a; --muted:#556070;
+      --ring:#e8e8f3; --brand:#5b55ff; --brand-2:#ff77aa;
+      --btn:#f4f4fb; --btn-text:#11131a;
+    }
     *{box-sizing:border-box}
-    body{margin:0;font:16px/1.5 system-ui,Segoe UI,Roboto;background:var(--bg);color:var(--text)}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui, Segoe UI, Roboto, Arial}
     .wrap{max-width:1100px;margin:0 auto;padding:20px}
+
     header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:18px}
     .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text)}
-    .logo{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7b5cff,#ff6fb1);color:#fff;font-weight:800}
+    .logo{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:10px;
+          background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;font-weight:800}
     .tools{display:flex;gap:8px}
-    .btn{border:1px solid var(--ring);background:transparent;color:var(--text);padding:6px 10px;border-radius:999px;cursor:pointer}
-    .btn[aria-pressed="true"]{border-color:var(--brand)}
+
+    .btn{border:1px solid var(--ring);background:var(--btn);color:var(--btn-text);
+         padding:8px 12px;border-radius:999px;cursor:pointer}
+    .btn[aria-pressed="true"]{outline:2px solid var(--brand); outline-offset:1px}
+
     .search{display:flex;gap:8px;margin:10px 0}
-    .search input,.search select{flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--ring);background:var(--card);color:var(--text)}
+    .search input,.search select{flex:1;padding:10px 12px;border-radius:12px;border:1px solid var(--ring);
+                                 background:var(--card);color:var(--text)}
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-    .card{background:var(--card);border:1px solid var(--ring);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:180px}
-    .title{font-weight:700}
+    .card{background:var(--card);border:1px solid var(--ring);border-radius:16px;padding:16px;
+          display:flex;flex-direction:column;gap:10px;min-height:180px}
+    .title{font-weight:800}
     .desc{color:var(--muted);font-size:14px}
     .badges{display:flex;flex-wrap:wrap;gap:6px}
     .badge{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--ring);color:var(--muted)}
@@ -42,9 +62,9 @@
         <span><strong>Ai Hub</strong> • Projects</span>
       </a>
       <div class="tools" role="group" aria-label="Theme">
-        <button class="btn" data-theme="light">Light</button>
-        <button class="btn" data-theme="dark">Dark</button>
-        <button class="btn" data-theme="auto">Auto</button>
+        <button class="btn" data-theme="light" aria-pressed="false">Light</button>
+        <button class="btn" data-theme="dark"  aria-pressed="false">Dark</button>
+        <button class="btn" data-theme="auto"  aria-pressed="false">Auto</button>
       </div>
     </header>
 
@@ -64,19 +84,33 @@
   </div>
 
   <script>
-    // Theme
+    // ---------- Theme handling ----------
     const root=document.documentElement;
-    function computeAuto(){ return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }
-    function applyTheme(mode){
-      const final = (mode==='auto') ? computeAuto() : mode;
-      root.setAttribute('data-theme', final);
-      document.querySelectorAll('.tools .btn').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.theme===mode)));
-    }
-    const saved=localStorage.getItem('theme')||'auto'; applyTheme(saved);
-    document.querySelectorAll('.tools .btn').forEach(b=> b.onclick=()=>{ localStorage.setItem('theme', b.dataset.theme); applyTheme(b.dataset.theme); });
-    matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', ()=>{ if((localStorage.getItem('theme')||'auto')==='auto') applyTheme('auto'); });
+    const metaTheme=document.getElementById('theme-color');
 
-    // Data
+    function autoPref() {
+      return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function applyTheme(mode){
+      const resolved = (mode==='auto') ? autoPref() : mode;
+      root.setAttribute('data-theme', resolved);
+      // update meta theme color (for mobile status bar)
+      metaTheme.setAttribute('content', resolved==='dark' ? '#0b0b10' : '#fbfbfe');
+      // update pressed state
+      document.querySelectorAll('[data-theme]').forEach(b=>{
+        b.setAttribute('aria-pressed', String(b.dataset.theme===mode));
+      });
+    }
+    function setTheme(mode){ localStorage.setItem('hub_theme', mode); applyTheme(mode); }
+
+    const saved = localStorage.getItem('hub_theme') || 'auto';
+    applyTheme(saved);
+    document.querySelectorAll('[data-theme]').forEach(b=> b.addEventListener('click', ()=> setTheme(b.dataset.theme)));
+    matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', ()=>{
+      if ((localStorage.getItem('hub_theme')||'auto')==='auto') applyTheme('auto');
+    });
+
+    // ---------- Apps ----------
     const state={apps:[], q:'', tag:''};
     const grid=document.getElementById('grid');
     const selTag=document.getElementById('tag');
@@ -117,7 +151,7 @@
     inputQ.addEventListener('input',e=>{ state.q=e.target.value; render(); });
     selTag.addEventListener('change',e=>{ state.tag=e.target.value; render(); });
 
-    // PWA
+    // ---------- PWA ----------
     if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js').catch(console.warn); }
   </script>
 </body>
